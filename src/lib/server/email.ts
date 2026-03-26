@@ -1,12 +1,12 @@
 import { Resend } from 'resend';
-import { RESEND_API_KEY, EMAIL_FROM } from '$env/dynamic/private';
+import { env } from '$env/dynamic/private';
 import { db } from './db';
 
 let resend: Resend;
 
 function getResend() {
 	if (!resend) {
-		resend = new Resend(RESEND_API_KEY);
+		resend = new Resend(env.RESEND_API_KEY);
 	}
 	return resend;
 }
@@ -27,7 +27,7 @@ export async function sendMissingBackupAlert(date: string) {
 	}
 
 	const emailAddresses = recipients.map((r) => r.email);
-	const from = EMAIL_FROM || 'Backup Monitor <noreply@swoep.nl>';
+	const from = env.EMAIL_FROM || 'Backup Monitor <noreply@swoep.nl>';
 
 	try {
 		await getResend().emails.send({

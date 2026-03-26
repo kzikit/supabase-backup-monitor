@@ -1,10 +1,10 @@
 import { Kysely, PostgresDialect } from 'kysely';
 import pg from 'pg';
-import { DATABASE_URL } from '$env/dynamic/private';
+import { env } from '$env/dynamic/private';
 import type { Database } from '$lib/types';
 
 const pool = new pg.Pool({
-	connectionString: DATABASE_URL
+	connectionString: env.DATABASE_URL
 });
 
 export const db = new Kysely<Database>({

@@ -1,4 +1,4 @@
-import { BASIC_AUTH_USER, BASIC_AUTH_PASS } from '$env/dynamic/private';
+import { env } from '$env/dynamic/private';
 
 /**
  * Valideer basic auth credentials.
@@ -13,7 +13,7 @@ export function validateBasicAuth(authHeader: string | null): boolean {
 	const decoded = atob(encoded);
 	const [user, pass] = decoded.split(':');
 
-	return user === (BASIC_AUTH_USER || 'admin') && pass === (BASIC_AUTH_PASS || '');
+	return user === (env.BASIC_AUTH_USER || 'admin') && pass === (env.BASIC_AUTH_PASS || '');
 }
 
 /**

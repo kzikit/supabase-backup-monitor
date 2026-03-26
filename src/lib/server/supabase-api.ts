@@ -1,4 +1,4 @@
-import { SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF } from '$env/dynamic/private';
+import { env } from '$env/dynamic/private';
 import type { SupabaseBackupResponse } from '$lib/types';
 
 /**
@@ -6,10 +6,10 @@ import type { SupabaseBackupResponse } from '$lib/types';
  */
 export async function fetchBackups(): Promise<SupabaseBackupResponse> {
 	const res = await fetch(
-		`https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/database/backups`,
+		`https://api.supabase.com/v1/projects/${env.SUPABASE_PROJECT_REF}/database/backups`,
 		{
 			headers: {
-				Authorization: `Bearer ${SUPABASE_ACCESS_TOKEN}`
+				Authorization: `Bearer ${env.SUPABASE_ACCESS_TOKEN}`
 			}
 		}
 	);

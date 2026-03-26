@@ -10,13 +10,16 @@ declare global {
 }
 
 declare module '$env/dynamic/private' {
-	export const DATABASE_URL: string;
-	export const SUPABASE_ACCESS_TOKEN: string;
-	export const SUPABASE_PROJECT_REF: string;
-	export const RESEND_API_KEY: string;
-	export const EMAIL_FROM: string;
-	export const BASIC_AUTH_USER: string;
-	export const BASIC_AUTH_PASS: string;
+	export const env: {
+		DATABASE_URL: string;
+		SUPABASE_ACCESS_TOKEN: string;
+		SUPABASE_PROJECT_REF: string;
+		RESEND_API_KEY: string;
+		EMAIL_FROM: string;
+		BASIC_AUTH_USER: string;
+		BASIC_AUTH_PASS: string;
+		[key: string]: string | undefined;
+	};
 }
 
 export {};
