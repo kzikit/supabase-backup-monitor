@@ -11,19 +11,24 @@
 
 	let checking = $state(false);
 	let checkResult = $state<'ok' | 'error' | null>(null);
+	let checkError = $state<string | null>(null);
 
 	async function triggerCheck() {
 		checking = true;
 		checkResult = null;
+		checkError = null;
 		try {
 			const res = await fetch('/api/check-backups');
+			const body = await res.json();
 			checkResult = res.ok ? 'ok' : 'error';
+			if (!res.ok) checkError = body.error || 'Onbekende fout';
 			if (res.ok) await invalidateAll();
-		} catch {
+		} catch (err) {
 			checkResult = 'error';
+			checkError = err instanceof Error ? err.message : 'Netwerkfout';
 		} finally {
 			checking = false;
-			setTimeout(() => checkResult = null, 3000);
+			setTimeout(() => { checkResult = null; checkError = null; }, 5000);
 		}
 	}
 
@@ -84,6 +89,12 @@
 			{/if}
 		</button>
 	</header>
+
+	{#if checkError}
+		<div class="bg-error/10 border-b border-error/20 px-4 py-2 text-sm text-error">
+			Check mislukt: {checkError}
+		</div>
+	{/if}
 
 	<!-- Main -->
 	<main class="flex-1 overflow-auto">
