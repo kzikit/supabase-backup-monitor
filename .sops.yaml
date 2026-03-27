@@ -1,0 +1,3 @@
+creation_rules:
+  - age: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJW23AVtHBFjYog4T+Bu9zf45HvtJaGJTjA0EPv4Zmks sops@tweaks"
+    path_regex: sopsdata/.*/.*
