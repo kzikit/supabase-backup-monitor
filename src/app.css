@@ -75,22 +75,6 @@ html, body {
 	transition: none;
 }
 
-/* Dunne scrollbars */
-::-webkit-scrollbar {
-	width: 5px;
-	height: 5px;
-}
-::-webkit-scrollbar-track {
-	background: transparent;
-}
-::-webkit-scrollbar-thumb {
-	background: oklch(var(--bc) / 0.15);
-	border-radius: 3px;
-}
-* {
-	scrollbar-width: thin;
-	scrollbar-color: oklch(var(--bc) / 0.15) transparent;
-}
 
 /* GitHub-stijl buttons */
 .btn {

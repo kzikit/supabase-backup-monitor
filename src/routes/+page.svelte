@@ -9,7 +9,14 @@
 
 	const latestBackup = $derived(data.backups[0]);
 	const today = $derived(new Date().toISOString().split('T')[0]);
-	const todayBackup = $derived(data.backups.find(b => b.inserted_at.split('T')[0] === today && b.status === 'COMPLETED'));
+	const todayBackup = $derived(data.backups.find(b => new Date(b.inserted_at).toISOString().split('T')[0] === today));
+
+	type TodayStatus = 'completed' | 'failed' | 'no-backup';
+	const todayStatus = $derived<TodayStatus>(
+		todayBackup
+			? todayBackup.status === 'COMPLETED' ? 'completed' : 'failed'
+			: 'no-backup'
+	);
 </script>
 
 <div class="space-y-6">
@@ -23,9 +30,9 @@
 		</div>
 
 		<!-- Weergave toggle -->
-		<div class="join">
+		<div class="flex gap-2">
 			<button
-				class="join-item btn btn-sm {view === 'calendar' ? 'btn-active' : ''}"
+				class="btn btn-sm {view === 'calendar' ? 'btn-active' : ''}"
 				onclick={() => view = 'calendar'}
 			>
 				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -34,7 +41,7 @@
 				Kalender
 			</button>
 			<button
-				class="join-item btn btn-sm {view === 'table' ? 'btn-active' : ''}"
+				class="btn btn-sm {view === 'table' ? 'btn-active' : ''}"
 				onclick={() => view = 'table'}
 			>
 				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -50,19 +57,26 @@
 		<div class="card border border-base-content/10 p-4">
 			<div class="text-sm text-base-content/60">Status vandaag</div>
 			<div class="mt-1 flex items-center gap-2">
-				{#if todayBackup}
+				{#if todayStatus === 'completed'}
 					<span class="badge badge-success gap-1">
 						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
 						</svg>
 						OK
 					</span>
-				{:else}
+				{:else if todayStatus === 'failed'}
 					<span class="badge badge-error gap-1">
 						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M12 3l9.66 16.5H2.34L12 3z" />
 						</svg>
-						Ontbreekt
+						Mislukt
+					</span>
+				{:else}
+					<span class="badge badge-warning gap-1">
+						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01" />
+						</svg>
+						Geen back-up
 					</span>
 				{/if}
 			</div>

@@ -32,4 +32,11 @@ export async function migrate() {
 		.addColumn('email', 'text', (col) => col.notNull().unique())
 		.addColumn('created_at', 'timestamptz', (col) => col.defaultTo('now()'))
 		.execute();
+
+	await db.schema
+		.createTable('app_settings')
+		.ifNotExists()
+		.addColumn('key', 'text', (col) => col.primaryKey())
+		.addColumn('value', 'text', (col) => col.notNull())
+		.execute();
 }

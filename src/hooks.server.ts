@@ -20,7 +20,11 @@ async function init() {
 export const handle: Handle = async ({ event, resolve }) => {
 	await init();
 
-	// Sta de handmatige check endpoint toe zonder auth (wordt intern gebruikt)
+	// Nep-API endpoint uitsluiten van basic auth (gebruikt eigen Bearer token)
+	if (event.url.pathname.startsWith('/v1/')) {
+		return resolve(event);
+	}
+
 	// Alle andere routes vereisen basic auth
 	const authHeader = event.request.headers.get('authorization');
 

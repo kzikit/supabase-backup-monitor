@@ -1,42 +1,103 @@
-# sv
+# Supabase Backup Monitor
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+Een SvelteKit-webapplicatie die Supabase database-backups monitort. De app haalt de back-upstatus op via de Supabase Management API, slaat records op in een PostgreSQL-database en stuurt e-mailmeldingen via Resend wanneer dagelijkse back-ups ontbreken.
 
-## Creating a project
+## Vereisten
 
-If you're seeing this, you've probably already done this step. Congrats!
+- [Node.js](https://nodejs.org/) 24+
+- [pnpm](https://pnpm.io/) (wordt geactiveerd via `corepack enable`)
+- Een PostgreSQL-database
+- Een [Supabase](https://supabase.com/) project met Management API-toegang
+- Een [Resend](https://resend.com/) account voor e-mailnotificaties
 
-```sh
-# create a new project
-npx sv create my-app
+## Omgevingsvariabelen
+
+Maak een `.env`-bestand aan in de root van het project:
+
+```env
+# Verplicht
+DATABASE_URL=postgresql://user:password@localhost:5432/backup_monitor
+SUPABASE_ACCESS_TOKEN=sbp_xxxxxxxxxxxxxxxx
+SUPABASE_PROJECT_REF=your-project-ref
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxx
+
+# Optioneel
+EMAIL_FROM="Backup Monitor <noreply@example.com>"   # standaard: "Backup Monitor <noreply@swoep.nl>"
+BASIC_AUTH_USER=admin                                 # standaard: "admin"
+BASIC_AUTH_PASS=geheim                                # standaard: "" (leeg)
 ```
 
-To recreate this project with the same configuration:
+| Variabele | Verplicht | Omschrijving |
+|---|---|---|
+| `DATABASE_URL` | Ja | PostgreSQL connection string voor de applicatiedatabase |
+| `SUPABASE_ACCESS_TOKEN` | Ja | Bearer token voor de Supabase Management API |
+| `SUPABASE_PROJECT_REF` | Ja | Project-referentie uit het Supabase dashboard |
+| `RESEND_API_KEY` | Ja | API-key van Resend voor e-mailverzending |
+| `EMAIL_FROM` | Nee | Afzenderadres voor e-mailmeldingen |
+| `BASIC_AUTH_USER` | Nee | Gebruikersnaam voor HTTP Basic Auth |
+| `BASIC_AUTH_PASS` | Nee | Wachtwoord voor HTTP Basic Auth |
 
-```sh
-# recreate this project
-pnpm dlx sv@0.13.0 create --template minimal --types ts --add vitest="usages:unit,component" tailwindcss="plugins:typography,forms" sveltekit-adapter="adapter:node" devtools-json mcp="ide:claude-code,opencode+setup:remote" --install pnpm supabase-backup-monitor
+## Lokaal draaien
+
+In je lokale postgresql, moet je de backup_monitor db creeren:
+
+```bash
+psql 'postgres://postgres:pass@localhost:5433' <<EOF
+SELECT 'CREATE DATABASE backup_monitor'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'backup_monitor')\gexec
+EOF
 ```
 
-## Developing
+Of met docker:
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
-```sh
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+```bash
+docker exec postgres psql -U postgres -c "CREATE DATABASE backup_monitor;"
 ```
 
-## Building
-
-To create a production version of your app:
-
 ```sh
-npm run build
+# Installeer dependencies
+pnpm install
+
+# Start de development server
+pnpm dev
 ```
 
-You can preview the production build with `npm run preview`.
+De app is dan beschikbaar op `http://localhost:5173`. Log in met de Basic Auth-credentials die je hebt ingesteld.
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+## Bouwen en draaien als productie
+
+```sh
+pnpm build
+node build
+```
+
+De productie-server draait standaard op poort 3000.
+
+## Docker
+
+```sh
+docker build -t supabase-backup-monitor .
+docker run -p 3000:3000 \
+  -e DATABASE_URL=postgresql://... \
+  -e SUPABASE_ACCESS_TOKEN=sbp_... \
+  -e SUPABASE_PROJECT_REF=... \
+  -e RESEND_API_KEY=re_... \
+  supabase-backup-monitor
+```
+
+## Testen
+
+```sh
+pnpm test
+```
+
+## Projectstructuur
+
+```
+src/lib/server/
+├── auth.ts          - HTTP Basic Authentication middleware
+├── cron.ts          - Dagelijkse back-up check (23:59 Europe/Amsterdam)
+├── db.ts            - PostgreSQL-verbinding en schemamigratie (Kysely)
+├── email.ts         - E-mailmeldingen via Resend
+└── supabase-api.ts  - Supabase Management API client
+```

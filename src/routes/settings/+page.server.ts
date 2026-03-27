@@ -9,7 +9,16 @@ export const load: PageServerLoad = async () => {
 		.orderBy('name', 'asc')
 		.execute();
 
-	return { recipients };
+	const emailOnSuccessRow = await db
+		.selectFrom('app_settings')
+		.select('value')
+		.where('key', '=', 'email_on_success')
+		.executeTakeFirst();
+
+	return {
+		recipients,
+		emailOnSuccess: emailOnSuccessRow?.value === 'true'
+	};
 };
 
 export const actions: Actions = {
@@ -33,6 +42,19 @@ export const actions: Actions = {
 			}
 			throw err;
 		}
+
+		return { success: true, action: 'add' };
+	},
+
+	toggleSuccessEmail: async ({ request }) => {
+		const formData = await request.formData();
+		const enabled = formData.get('enabled') === 'true';
+
+		await db
+			.insertInto('app_settings')
+			.values({ key: 'email_on_success', value: String(enabled) })
+			.onConflict((oc) => oc.column('key').doUpdateSet({ value: String(enabled) }))
+			.execute();
 
 		return { success: true };
 	},

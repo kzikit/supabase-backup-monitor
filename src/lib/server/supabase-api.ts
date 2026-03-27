@@ -6,7 +6,7 @@ import type { SupabaseBackupResponse } from '$lib/types';
  */
 export async function fetchBackups(): Promise<SupabaseBackupResponse> {
 	const res = await fetch(
-		`https://api.supabase.com/v1/projects/${env.SUPABASE_PROJECT_REF}/database/backups`,
+		`${env.SUPABASE_API_URL || 'https://api.supabase.com'}/v1/projects/${env.SUPABASE_PROJECT_REF}/database/backups`,
 		{
 			headers: {
 				Authorization: `Bearer ${env.SUPABASE_ACCESS_TOKEN}`

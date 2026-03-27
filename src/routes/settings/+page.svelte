@@ -13,6 +13,27 @@
 		</p>
 	</div>
 
+	<!-- E-mail bij succesvolle back-up -->
+	<div class="card border border-base-content/10 p-4">
+		<div class="flex items-center justify-between">
+			<div>
+				<h2 class="text-lg font-medium">E-mail bij succesvolle back-up</h2>
+				<p class="text-base-content/60 text-sm mt-1">
+					Stuur een bevestigingsmail naar alle ontvangers wanneer de dagelijkse back-up succesvol is
+				</p>
+			</div>
+			<form method="POST" action="?/toggleSuccessEmail" use:enhance>
+				<input type="hidden" name="enabled" value={data.emailOnSuccess ? 'false' : 'true'} />
+				<input
+					type="checkbox"
+					class="toggle toggle-success"
+					checked={data.emailOnSuccess}
+					onchange={(e) => e.currentTarget.form?.requestSubmit()}
+				/>
+			</form>
+		</div>
+	</div>
+
 	<!-- Formulier: ontvanger toevoegen -->
 	<div class="card border border-base-content/10 p-4">
 		<h2 class="text-lg font-medium mb-4">Ontvanger toevoegen</h2>
@@ -23,7 +44,7 @@
 			</div>
 		{/if}
 
-		{#if form?.success}
+		{#if form?.success && form?.action === 'add'}
 			<div class="alert alert-success mb-4 text-sm">
 				Ontvanger toegevoegd
 			</div>
