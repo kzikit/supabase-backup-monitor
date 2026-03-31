@@ -70,7 +70,7 @@ export async function checkBackups(): Promise<{ backupsFound: number; todayOk: b
   }
 
   // 3. Controleer of er vandaag een succesvolle back-up is
-  const todayBackups = backups.filter((b) => b.inserted_at.toISOString().split('T')[0] === todayStr);
+  const todayBackups = backups.filter((b) => String(b.inserted_at).split('T')[0] === todayStr);
   const completedBackup = todayBackups.find((b) => b.status === 'COMPLETED');
 
   // 4. Stuur e-mail op basis van resultaat

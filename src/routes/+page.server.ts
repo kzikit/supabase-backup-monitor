@@ -10,7 +10,7 @@ export const load: PageServerLoad = async () => {
 
 	const backups = rows.map((b) => ({
 		...b,
-		inserted_at: b.inserted_at.toISOString()
+		inserted_at: new Date(b.inserted_at as unknown as string).toISOString()
 	}));
 
 	return { backups };
