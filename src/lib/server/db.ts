@@ -3,9 +3,6 @@ import pg from 'pg';
 import { env } from '$env/dynamic/private';
 import type { Database } from '$lib/types';
 
-// Retourneer timestamptz (OID 1184) als ISO-string i.p.v. Date object
-pg.types.setTypeParser(1184, (val: string) => val);
-
 const pool = new pg.Pool({
 	connectionString: env.DATABASE_URL
 });

@@ -13,7 +13,7 @@ export interface AppSettingsTable {
 }
 
 export interface SupabaseBackupsTable {
-	inserted_at: string;
+	inserted_at: Date;
 	is_physical_backup: boolean;
 	status: string;
 }
@@ -22,7 +22,7 @@ export interface EmailRecipientsTable {
 	id: Generated<number>;
 	name: string;
 	email: string;
-	created_at: Generated<string>;
+	created_at: Generated<Date>;
 }
 
 export type SupabaseBackup = Selectable<SupabaseBackupsTable>;

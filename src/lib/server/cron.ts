@@ -54,7 +54,7 @@ export async function checkBackups(): Promise<{ backupsFound: number; todayOk: b
   // 2. Sla op in database (bij conflicten niets doen)
   if (backups.length > 0) {
     const rows: NewSupabaseBackup[] = backups.map((b) => ({
-      inserted_at: b.inserted_at,
+      inserted_at: new Date(b.inserted_at),
       is_physical_backup: b.is_physical_backup,
       status: b.status
     }));
