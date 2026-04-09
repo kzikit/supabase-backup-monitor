@@ -65,6 +65,12 @@ vi.mock('./db', () => ({
 	}
 }));
 
+// Mock backup-orchestrator
+const mockRunBackup = vi.fn();
+vi.mock('./backup-orchestrator', () => ({
+	runBackup: (...args: unknown[]) => mockRunBackup(...args)
+}));
+
 // Importeer NA de mocks
 const { startCronJob } = await import('./cron');
 
@@ -74,10 +80,17 @@ describe('startCronJob', () => {
 		mockIsSuccessEmailEnabled.mockResolvedValue(false);
 	});
 
-	it('plant twee cron-taken met correcte expressies en tijdzone', () => {
+	it('plant drie cron-taken met correcte expressies en tijdzone', () => {
 		startCronJob();
 
-		expect(mockSchedule).toHaveBeenCalledTimes(2);
+		expect(mockSchedule).toHaveBeenCalledTimes(3);
+
+		// Azure backup elke 4 uur
+		expect(mockSchedule).toHaveBeenCalledWith(
+			'0 2,6,10,14,18,22 * * *',
+			expect.any(Function),
+			{ timezone: 'Europe/Amsterdam' }
+		);
 
 		// Ochtendcheck om 08:00 Europe/Amsterdam
 		expect(mockSchedule).toHaveBeenCalledWith(
@@ -105,8 +118,8 @@ describe('startCronJob', () => {
 
 		startCronJob();
 
-		// Haal de ochtend-callback op (eerste cron.schedule aanroep)
-		const morningCallback = mockSchedule.mock.calls[0][1];
+		// Haal de ochtend-callback op (tweede cron.schedule aanroep, na backup)
+		const morningCallback = mockSchedule.mock.calls[1][1];
 		await morningCallback();
 
 		// checkBackups() moet fetchBackups hebben aangeroepen
@@ -124,8 +137,8 @@ describe('startCronJob', () => {
 
 		startCronJob();
 
-		// Haal de avond-callback op (tweede cron.schedule aanroep)
-		const eveningCallback = mockSchedule.mock.calls[1][1];
+		// Haal de avond-callback op (derde cron.schedule aanroep, na backup en ochtend)
+		const eveningCallback = mockSchedule.mock.calls[2][1];
 		await eveningCallback();
 
 		expect(mockFetchBackups).toHaveBeenCalled();
@@ -136,7 +149,8 @@ describe('startCronJob', () => {
 
 		startCronJob();
 
-		const morningCallback = mockSchedule.mock.calls[0][1];
+		// Ochtend-callback (index 1, na backup cron)
+		const morningCallback = mockSchedule.mock.calls[1][1];
 
 		// Moet NIET gooien — fouten worden intern afgevangen door try/catch
 		await expect(morningCallback()).resolves.toBeUndefined();
@@ -147,7 +161,8 @@ describe('startCronJob', () => {
 
 		startCronJob();
 
-		const morningCallback = mockSchedule.mock.calls[0][1];
+		// Ochtend-callback (index 1, na backup cron)
+		const morningCallback = mockSchedule.mock.calls[1][1];
 		await morningCallback();
 
 		// checkBackups vangt de fout en stuurt een alert

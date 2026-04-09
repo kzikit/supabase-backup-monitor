@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { fetchBackups } from './supabase-api';
 import { sendMissingBackupAlert, sendSuccessBackupAlert, isSuccessEmailEnabled } from './email';
 import { db } from './db';
+import { runBackup } from './backup-orchestrator';
 import type { NewSupabaseBackup, BackupAlertReason } from '$lib/types';
 
 /**
@@ -17,6 +18,22 @@ import type { NewSupabaseBackup, BackupAlertReason } from '$lib/types';
  */
 export function startCronJob() {
   console.log('[cron] Back-up checks gepland: 08:00 en 23:59 Europe/Amsterdam');
+  console.log('[cron] Azure backup gepland: elke 4 uur (02:00, 06:00, 10:00, 14:00, 18:00, 22:00)');
+
+  // Azure backup elke 4 uur
+  cron.schedule(
+    '0 2,6,10,14,18,22 * * *',
+    async () => {
+      console.log('[cron] Azure backup gestart');
+      try {
+        const manifest = await runBackup();
+        console.log(`[cron] Azure backup klaar in ${manifest.duration_ms}ms`);
+      } catch (err) {
+        console.error('[cron] Azure backup mislukt:', err);
+      }
+    },
+    { timezone: 'Europe/Amsterdam' }
+  );
 
   // Ochtendcheck — Supabase draait backups rond 06:00
   cron.schedule(
@@ -67,9 +84,12 @@ export async function checkBackups(): Promise<{ backupsFound: number; todayOk: b
   }
 
   const backups = response.backups;
-  console.log(`[cron] ${backups.length} back-ups opgehaald van Supabase API: \n${JSON.stringify(backups, null, 2)}`);
+  console.log(`[cron] ${backups.length} back-ups opgehaald van Supabase API (walg=${response.walg_enabled}, pitr=${response.pitr_enabled})`);
+  console.log(`[cron] backups: ${JSON.stringify(backups, null, 2)}`);
 
-  // 2. Sla op in database (bij conflicten niets doen)
+  // 2. Sync naar database: per dag alle bestaande records verwijderen en
+  //    vervangen door wat de API teruggeeft. Dagen die niet in de API
+  //    response zitten worden niet aangeraakt (historische data blijft bewaard).
   if (backups.length > 0) {
     const rows: NewSupabaseBackup[] = backups.map((b) => ({
       inserted_at: new Date(b.inserted_at),
@@ -77,14 +97,29 @@ export async function checkBackups(): Promise<{ backupsFound: number; todayOk: b
       status: b.status
     }));
 
+    // Unieke dagen in de API-response
+    const days = [...new Set(rows.map((r) => r.inserted_at.toISOString().split('T')[0]))];
+
+    for (const day of days) {
+      const dayStart = new Date(`${day}T00:00:00.000Z`);
+      const dayEnd = new Date(`${day}T23:59:59.999Z`);
+
+      // Verwijder alle lokale records voor deze dag
+      await db
+        .deleteFrom('supabase_backups')
+        .where('inserted_at', '>=', dayStart)
+        .where('inserted_at', '<=', dayEnd)
+        .execute();
+    }
+
+    // Insert verse records van de API
     for (const row of rows) {
       await db
         .insertInto('supabase_backups')
         .values(row)
-        .onConflict((oc) => oc.column('inserted_at').doNothing())
         .execute();
     }
-    console.log('[cron] Back-ups opgeslagen in database');
+    console.log(`[cron] Back-ups opgeslagen in database (${days.join(', ')} vernieuwd)`);
   }
 
   // 3. Controleer of er vandaag een succesvolle back-up is

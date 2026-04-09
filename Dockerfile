@@ -26,6 +26,9 @@ FROM node:24-alpine AS runtime
 
 WORKDIR /app
 
+# pg_dump nodig voor database backups naar Azure
+RUN apk add --no-cache postgresql17-client
+
 # Kopieer alleen wat nodig is voor productie
 COPY --from=build /app/build ./build
 COPY --from=build /app/node_modules ./node_modules

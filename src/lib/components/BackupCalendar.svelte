@@ -118,7 +118,7 @@
 </script>
 
 <div class="card border border-base-content/10 p-4">
-	<h3 class="text-sm font-medium mb-3">Back-up activiteit (afgelopen jaar)</h3>
+	<h3 class="text-sm font-medium mb-3">Supabase beheerde backups (afgelopen jaar)</h3>
 
 	<div class="overflow-x-auto">
 		<div class="inline-flex flex-col gap-[3px] min-w-max">

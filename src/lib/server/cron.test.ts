@@ -53,7 +53,8 @@ function chainable() {
 vi.mock('./db', () => ({
 	db: {
 		insertInto: () => chainable(),
-		selectFrom: () => chainable()
+		selectFrom: () => chainable(),
+		deleteFrom: () => chainable()
 	}
 }));
 

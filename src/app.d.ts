@@ -18,6 +18,10 @@ declare module '$env/dynamic/private' {
 		EMAIL_FROM: string;
 		BASIC_AUTH_USER: string;
 		BASIC_AUTH_PASS: string;
+		AZURE_STORAGE_CONNECTION_STRING: string;
+		AZURE_BLOB_CONTAINER: string;
+		SUPABASE_DB_URL: string;
+		SUPABASE_SERVICE_ROLE_KEY: string;
 		[key: string]: string | undefined;
 	};
 }

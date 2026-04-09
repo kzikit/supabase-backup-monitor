@@ -50,3 +50,50 @@ export interface SupabaseBackupEntry {
 	status: string;
 	inserted_at: string;
 }
+
+// Backup naar Azure Blob Storage
+export interface BackupManifest {
+	timestamp: string;
+	duration_ms: number;
+	supabase_project_ref: string;
+	db: {
+		schema_blob: string;
+		data_blob: string;
+		migrations_blob: string;
+		tables: Array<{ name: string; row_count: number }>;
+	};
+	storage: {
+		blob: string;
+		buckets: Array<{ id: string; public: boolean; files_count: number }>;
+		total_files: number;
+	};
+	metadata: {
+		blob: string;
+		storage_policies_count: number;
+		realtime_tables_count: number;
+		webhook_triggers_count: number;
+		extensions: string[];
+	};
+	status: 'completed' | 'failed';
+}
+
+export interface BackupMetadata {
+	timestamp: string;
+	storage_policies: Array<{
+		policyname: string;
+		cmd: string;
+		permissive: string;
+		roles: string[];
+		qual: string | null;
+		with_check: string | null;
+	}>;
+	realtime_tables: Array<{ schemaname: string; tablename: string }>;
+	webhook_triggers: Array<{
+		trigger_name: string;
+		table_name: string;
+		schema_name: string;
+		trigger_definition: string;
+	}>;
+	extensions: string[];
+	tables: Array<{ name: string; row_count: number }>;
+}
