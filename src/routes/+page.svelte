@@ -82,12 +82,12 @@
 	// Trigger backup (Azure) met SSE
 	let triggering = $state(false);
 	let triggerEvents = $state<BackupProgressEvent[]>([]);
-	let triggerDone = $state(false);
+	let triggerResult = $state<'ok' | 'error' | null>(null);
 
 	async function triggerAzureBackup() {
 		triggering = true;
 		triggerEvents = [];
-		triggerDone = false;
+		triggerResult = null;
 
 		try {
 			const res = await fetch('/api/backup', { method: 'POST' });
@@ -110,9 +110,8 @@
 						const event: BackupProgressEvent = JSON.parse(line.slice(6));
 						triggerEvents = [...triggerEvents, event];
 
-						if (event.phase === 'complete' || event.phase === 'error') {
-							triggerDone = true;
-						}
+						if (event.phase === 'complete') triggerResult = 'ok';
+						if (event.phase === 'error') triggerResult = 'error';
 					}
 				}
 			}
@@ -126,7 +125,7 @@
 					timestamp: new Date().toISOString()
 				}
 			];
-			triggerDone = true;
+			triggerResult = 'error';
 		} finally {
 			triggering = false;
 			await invalidateAll();
@@ -391,12 +390,12 @@
 			<button
 				onclick={triggerAzureBackup}
 				disabled={triggering}
-				class="btn btn-sm btn-primary gap-1.5"
+				class="btn btn-sm gap-1.5 {triggerResult === 'error' ? 'btn-error' : 'btn-primary'}"
 			>
 				{#if triggering}
 					<span class="loading loading-spinner loading-xs"></span>
 					Bezig...
-				{:else if triggerDone}
+				{:else if triggerResult === 'ok'}
 					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path
 							stroke-linecap="round"
@@ -406,6 +405,16 @@
 						/>
 					</svg>
 					Voltooid
+				{:else if triggerResult === 'error'}
+					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M6 18L18 6M6 6l12 12"
+						/>
+					</svg>
+					Mislukt
 				{:else}
 					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path

@@ -11,60 +11,94 @@
 
 	let { backups }: { backups: AzureBackupRow[] } = $props();
 
-	// Bouw een map van datum → status (meerdere backups per dag mogelijk, neem de beste)
-	const backupStatusMap = $derived(new Map(
+	// Bouw een map van datum → { status, count } (meerdere backups per dag)
+	interface DayInfo {
+		status: string;
+		total: number;
+		completed: number;
+		failed: number;
+	}
+
+	const backupDayMap = $derived(
 		(() => {
-			const map = new Map<string, string>();
-			// Sorteer zodat 'completed' wint over 'failed'
-			for (const b of [...backups].reverse()) {
+			const map = new Map<string, DayInfo>();
+			for (const b of backups) {
 				const date = new Date(b.timestamp).toISOString().split('T')[0];
 				const existing = map.get(date);
-				if (!existing || b.status === 'completed') {
-					map.set(date, b.status);
+				if (existing) {
+					existing.total++;
+					if (b.status === 'completed') existing.completed++;
+					else existing.failed++;
+					// Status is 'completed' als minstens 1 succesvol
+					if (b.status === 'completed') existing.status = 'completed';
+				} else {
+					map.set(date, {
+						status: b.status,
+						total: 1,
+						completed: b.status === 'completed' ? 1 : 0,
+						failed: b.status === 'completed' ? 0 : 1
+					});
 				}
 			}
-			return [...map.entries()];
+			return map;
 		})()
-	));
+	);
 
-	type DayStatus = 'completed' | 'failed' | 'no-data';
+	type DayStatus = 'all-ok' | 'partial' | 'all-failed' | 'no-data';
 
 	function getDayStatus(dateStr: string): DayStatus {
-		const status = backupStatusMap.get(dateStr);
-		if (status === undefined) return 'no-data';
-		if (status === 'completed') return 'completed';
-		return 'failed';
+		const info = backupDayMap.get(dateStr);
+		if (!info) return 'no-data';
+		if (info.failed === 0) return 'all-ok';
+		if (info.completed === 0) return 'all-failed';
+		return 'partial';
+	}
+
+	function getDayCount(dateStr: string): number {
+		return backupDayMap.get(dateStr)?.total ?? 0;
 	}
 
 	const statusColors: Record<DayStatus, string> = {
-		completed: 'bg-success',
-		failed: 'bg-error',
+		'all-ok': 'bg-success text-success-content',
+		partial: 'bg-warning text-warning-content',
+		'all-failed': 'bg-error text-error-content',
 		'no-data': 'bg-base-content/10'
 	};
 
 	const statusLabels: Record<DayStatus, string> = {
-		completed: 'Back-up OK',
-		failed: 'Back-up mislukt',
+		'all-ok': 'Alle back-ups OK',
+		partial: 'Deels mislukt',
+		'all-failed': 'Alle back-ups mislukt',
 		'no-data': 'Geen data'
 	};
+
+	function dayTitle(dateStr: string): string {
+		const info = backupDayMap.get(dateStr);
+		if (!info) return `${dateStr}: Geen data`;
+		return `${dateStr}: ${info.completed}/${info.total} geslaagd`;
+	}
 
 	// Kalendergrid: afgelopen 52 weken
 	const weeks = $derived.by(() => {
 		const today = new Date();
-		const result: { date: string; status: DayStatus; isFuture: boolean }[][] = [];
+		const result: { date: string; status: DayStatus; count: number }[][] = [];
 
 		const start = new Date(today);
 		start.setDate(start.getDate() - 52 * 7 - ((start.getDay() + 6) % 7));
 
 		let current = new Date(start);
-		let week: { date: string; status: DayStatus; isFuture: boolean }[] = [];
+		let week: { date: string; status: DayStatus; count: number }[] = [];
 
 		while (current <= today || week.length > 0) {
 			const dateStr = current.toISOString().split('T')[0];
 			const isFuture = current > today;
 
 			if (!isFuture) {
-				week.push({ date: dateStr, status: getDayStatus(dateStr), isFuture: false });
+				week.push({
+					date: dateStr,
+					status: getDayStatus(dateStr),
+					count: getDayCount(dateStr)
+				});
 			}
 
 			if (current.getDay() === 0 || isFuture) {
@@ -131,9 +165,13 @@
 						{@const day = week[dayIndex]}
 						{#if day}
 							<div
-								class="w-4 h-4 rounded-sm {statusColors[day.status]}"
-								title="{day.date}: {statusLabels[day.status]}"
-							></div>
+								class="w-4 h-4 rounded-sm {statusColors[day.status]} flex items-center justify-center"
+								title={dayTitle(day.date)}
+							>
+								{#if day.count > 0}
+									<span class="text-[7px] font-bold leading-none">{day.count}</span>
+								{/if}
+							</div>
 						{:else}
 							<div class="w-4 h-4"></div>
 						{/if}
@@ -146,12 +184,22 @@
 	<!-- Legenda -->
 	<div class="flex flex-wrap items-center gap-4 mt-3 text-xs text-base-content/60">
 		<div class="flex items-center gap-1">
-			<div class="w-4 h-4 rounded-sm bg-success"></div>
-			Back-up OK
+			<div class="w-4 h-4 rounded-sm bg-success text-success-content flex items-center justify-center">
+				<span class="text-[7px] font-bold">6</span>
+			</div>
+			Alle OK
 		</div>
 		<div class="flex items-center gap-1">
-			<div class="w-4 h-4 rounded-sm bg-error"></div>
-			Mislukt
+			<div class="w-4 h-4 rounded-sm bg-warning text-warning-content flex items-center justify-center">
+				<span class="text-[7px] font-bold">4</span>
+			</div>
+			Deels mislukt
+		</div>
+		<div class="flex items-center gap-1">
+			<div class="w-4 h-4 rounded-sm bg-error text-error-content flex items-center justify-center">
+				<span class="text-[7px] font-bold">2</span>
+			</div>
+			Alle mislukt
 		</div>
 		<div class="flex items-center gap-1">
 			<div class="w-4 h-4 rounded-sm bg-base-content/10"></div>
