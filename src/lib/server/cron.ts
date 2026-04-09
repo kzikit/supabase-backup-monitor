@@ -5,7 +5,10 @@ import { db } from './db';
 import type { NewSupabaseBackup, BackupAlertReason } from '$lib/types';
 
 /**
- * Start de dagelijkse cron job om 23:59 (Europe/Amsterdam).
+ * Start de cron jobs voor back-up checks.
+ *
+ * - 08:00: Ochtendcheck — Supabase draait backups rond 06:00
+ * - 23:59: Avondcheck — eindcontrole van de dag
  *
  * 1. Haal back-ups op van Supabase API
  * 2. Sla ze op in de database (bij conflicten niets doen)
@@ -13,16 +16,31 @@ import type { NewSupabaseBackup, BackupAlertReason } from '$lib/types';
  * 4. Zo niet, stuur een waarschuwing
  */
 export function startCronJob() {
-  console.log('[cron] Dagelijkse back-up check gepland om 23:59 Europe/Amsterdam');
+  console.log('[cron] Back-up checks gepland: 08:00 en 23:59 Europe/Amsterdam');
 
+  // Ochtendcheck — Supabase draait backups rond 06:00
   cron.schedule(
-    '59 23 * * *',
+    '0 8 * * *',
     async () => {
-      console.log('[cron] Back-up check gestart');
+      console.log('[cron] Ochtend back-up check gestart');
       try {
         await checkBackups();
       } catch (err) {
-        console.error('[cron] Fout bij back-up check:', err);
+        console.error('[cron] Fout bij ochtend back-up check:', err);
+      }
+    },
+    { timezone: 'Europe/Amsterdam' }
+  );
+
+  // Avondcheck — eindcontrole van de dag
+  cron.schedule(
+    '59 23 * * *',
+    async () => {
+      console.log('[cron] Avond back-up check gestart');
+      try {
+        await checkBackups();
+      } catch (err) {
+        console.error('[cron] Fout bij avond back-up check:', err);
       }
     },
     { timezone: 'Europe/Amsterdam' }
