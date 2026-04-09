@@ -11,17 +11,31 @@
 		})
 	));
 
-	type DayStatus = 'completed' | 'failed' | 'no-data' | 'no-backup';
+	type DayStatus = 'completed' | 'failed' | 'no-data' | 'no-backup' | 'expired';
+
+	// Retentievenster van Supabase: 7 dagen
+	const RETENTION_DAYS = 7;
+
+	function isExpired(dateStr: string): boolean {
+		const date = new Date(dateStr);
+		const now = new Date();
+		const diffMs = now.getTime() - date.getTime();
+		return diffMs > RETENTION_DAYS * 24 * 60 * 60 * 1000;
+	}
 
 	function getDayStatus(dateStr: string): DayStatus {
 		const status = backupStatusMap.get(dateStr);
 		if (status === undefined) return 'no-data';
-		if (status === 'COMPLETED') return 'completed';
+		if (status === 'COMPLETED') {
+			// Voltooide backups ouder dan 7 dagen zijn opgeschoond
+			return isExpired(dateStr) ? 'expired' : 'completed';
+		}
 		return 'failed';
 	}
 
 	const statusColors: Record<DayStatus, string> = {
 		'completed': 'bg-success',
+		'expired': 'bg-success/30',
 		'failed': 'bg-error',
 		'no-data': 'bg-base-content/10',
 		'no-backup': 'bg-warning/40'
@@ -29,6 +43,7 @@
 
 	const statusLabels: Record<DayStatus, string> = {
 		'completed': 'Back-up OK',
+		'expired': 'Opgeschoond (>7 dagen)',
 		'failed': 'Back-up mislukt',
 		'no-data': 'Geen data',
 		'no-backup': 'Geen back-up'
@@ -130,9 +145,16 @@
 						{@const day = week[dayIndex]}
 						{#if day}
 							<div
-								class="w-4 h-4 rounded-sm {statusColors[day.status]}"
+								class="w-4 h-4 rounded-sm {statusColors[day.status]} relative overflow-hidden"
 								title="{day.date}: {statusLabels[day.status]}"
-							></div>
+							>
+								{#if day.status === 'expired'}
+									<!-- Diagonale streep als indicator voor opgeschoonde backup -->
+									<div class="absolute inset-0 flex items-center justify-center">
+										<div class="w-[141%] h-[1.5px] bg-base-content/30 rotate-45"></div>
+									</div>
+								{/if}
+							</div>
 						{:else}
 							<div class="w-4 h-4"></div>
 						{/if}
@@ -143,10 +165,18 @@
 	</div>
 
 	<!-- Legenda -->
-	<div class="flex items-center gap-4 mt-3 text-xs text-base-content/60">
+	<div class="flex flex-wrap items-center gap-4 mt-3 text-xs text-base-content/60">
 		<div class="flex items-center gap-1">
 			<div class="w-4 h-4 rounded-sm bg-success"></div>
 			Back-up OK
+		</div>
+		<div class="flex items-center gap-1">
+			<div class="w-4 h-4 rounded-sm bg-success/30 relative overflow-hidden">
+				<div class="absolute inset-0 flex items-center justify-center">
+					<div class="w-[141%] h-[1.5px] bg-base-content/30 rotate-45"></div>
+				</div>
+			</div>
+			Opgeschoond
 		</div>
 		<div class="flex items-center gap-1">
 			<div class="w-4 h-4 rounded-sm bg-error"></div>

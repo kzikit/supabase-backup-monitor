@@ -11,6 +11,14 @@
 	const today = $derived(new Date().toISOString().split('T')[0]);
 	const todayBackup = $derived(data.backups.find(b => new Date(b.inserted_at).toISOString().split('T')[0] === today));
 
+	// Retentievenster: 7 dagen
+	const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+	const latestBackupExpired = $derived(
+		latestBackup
+			? (Date.now() - new Date(latestBackup.inserted_at).getTime()) > RETENTION_MS
+			: false
+	);
+
 	type TodayStatus = 'completed' | 'failed' | 'no-backup';
 	const todayStatus = $derived<TodayStatus>(
 		todayBackup
@@ -87,6 +95,9 @@
 			<div class="mt-1 text-sm font-medium">
 				{#if latestBackup}
 					{new Date(latestBackup.inserted_at).toLocaleString('nl-NL', { dateStyle: 'medium', timeStyle: 'short' })}
+					{#if latestBackupExpired}
+						<span class="badge badge-ghost badge-xs ml-1">Opgeschoond</span>
+					{/if}
 				{:else}
 					Geen data
 				{/if}
