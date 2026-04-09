@@ -3,34 +3,9 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import { page } from '$app/stores';
 
-	import { invalidateAll } from '$app/navigation';
-
 	let { children } = $props();
 
 	const currentPath = $derived($page.url.pathname);
-
-	let checking = $state(false);
-	let checkResult = $state<'ok' | 'error' | null>(null);
-	let checkError = $state<string | null>(null);
-
-	async function triggerCheck() {
-		checking = true;
-		checkResult = null;
-		checkError = null;
-		try {
-			const res = await fetch('/api/check-backups');
-			const body = await res.json();
-			checkResult = res.ok ? 'ok' : 'error';
-			if (!res.ok) checkError = body.error || 'Onbekende fout';
-			if (res.ok) await invalidateAll();
-		} catch (err) {
-			checkResult = 'error';
-			checkError = err instanceof Error ? err.message : 'Netwerkfout';
-		} finally {
-			checking = false;
-			setTimeout(() => { checkResult = null; checkError = null; }, 5000);
-		}
-	}
 
 	const navItems = [
 		{ href: '/', label: 'Dashboard', icon: 'chart' },
@@ -65,36 +40,7 @@
 			{/each}
 		</nav>
 
-		<div class="flex-1"></div>
-
-		<button onclick={triggerCheck} disabled={checking} class="btn btn-sm btn-primary gap-1.5">
-			{#if checking}
-				<span class="loading loading-spinner loading-xs"></span>
-				Bezig...
-			{:else if checkResult === 'ok'}
-				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-				</svg>
-				Klaar
-			{:else if checkResult === 'error'}
-				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-				</svg>
-				Fout
-			{:else}
-				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-				</svg>
-				Check nu
-			{/if}
-		</button>
 	</header>
-
-	{#if checkError}
-		<div class="bg-error/10 border-b border-error/20 px-4 py-2 text-sm text-error">
-			Check mislukt: {checkError}
-		</div>
-	{/if}
 
 	<!-- Main -->
 	<main class="flex-1 overflow-auto">

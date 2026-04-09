@@ -3,6 +3,7 @@ import type { Generated, Insertable, Selectable } from 'kysely';
 // Database schema
 export interface Database {
 	supabase_backups: SupabaseBackupsTable;
+	azure_backups: AzureBackupsTable;
 	email_recipients: EmailRecipientsTable;
 	app_settings: AppSettingsTable;
 }
@@ -25,10 +26,30 @@ export interface EmailRecipientsTable {
 	created_at: Generated<Date>;
 }
 
+export interface AzureBackupsTable {
+	timestamp: Date;
+	status: string;
+	duration_ms: number | null;
+	tables_count: number | null;
+	storage_files_count: number | null;
+	manifest_blob: string | null;
+}
+
 export type SupabaseBackup = Selectable<SupabaseBackupsTable>;
 export type NewSupabaseBackup = Insertable<SupabaseBackupsTable>;
+export type AzureBackup = Selectable<AzureBackupsTable>;
+export type NewAzureBackup = Insertable<AzureBackupsTable>;
 export type EmailRecipient = Selectable<EmailRecipientsTable>;
 export type NewEmailRecipient = Insertable<EmailRecipientsTable>;
+
+// Progress events voor SSE streaming bij handmatige backup
+export interface BackupProgressEvent {
+	phase: 'init' | 'database' | 'storage' | 'metadata' | 'manifest' | 'complete' | 'error';
+	status: 'start' | 'done' | 'error';
+	message: string;
+	timestamp: string;
+	data?: unknown;
+}
 
 // Redenen waarom een backup-waarschuwing wordt verstuurd
 export type BackupAlertReason =

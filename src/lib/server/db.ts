@@ -39,4 +39,15 @@ export async function migrate() {
 		.addColumn('key', 'text', (col) => col.primaryKey())
 		.addColumn('value', 'text', (col) => col.notNull())
 		.execute();
+
+	await db.schema
+		.createTable('azure_backups')
+		.ifNotExists()
+		.addColumn('timestamp', 'timestamptz', (col) => col.primaryKey())
+		.addColumn('status', 'text', (col) => col.notNull())
+		.addColumn('duration_ms', 'integer')
+		.addColumn('tables_count', 'integer')
+		.addColumn('storage_files_count', 'integer')
+		.addColumn('manifest_blob', 'text')
+		.execute();
 }
