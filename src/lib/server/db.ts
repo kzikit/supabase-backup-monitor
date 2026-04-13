@@ -1,4 +1,4 @@
-import { Kysely, PostgresDialect } from 'kysely';
+import { Kysely, PostgresDialect, sql } from 'kysely';
 import pg from 'pg';
 import { env } from '$env/dynamic/private';
 import type { Database } from '$lib/types';
@@ -49,5 +49,28 @@ export async function migrate() {
 		.addColumn('tables_count', 'integer')
 		.addColumn('storage_files_count', 'integer')
 		.addColumn('manifest_blob', 'text')
+		.addColumn('trigger_type', 'text', (col) => col.notNull().defaultTo('manual'))
+		.addColumn('cron_hour', 'smallint')
 		.execute();
+
+	// Idempotente migratie: voor bestaande databases waar de azure_backups tabel
+	// al bestond zonder deze kolommen. `IF NOT EXISTS` zorgt dat dit een no-op is
+	// op verse databases (createTable hierboven heeft ze daar al toegevoegd).
+	await sql`
+		ALTER TABLE azure_backups
+			ADD COLUMN IF NOT EXISTS trigger_type text NOT NULL DEFAULT 'manual',
+			ADD COLUMN IF NOT EXISTS cron_hour smallint
+	`.execute(db);
+
+	// Backfill bestaande rijen: lees trigger uit manifest_blob naam.
+	// `manifests/CRON{HH}-...` → cron + uur, anders blijft default 'manual' staan.
+	// We updaten alleen rijen die nog op de default 'manual' zitten zodat dit
+	// idempotent en goedkoop is bij elke startup.
+	await sql`
+		UPDATE azure_backups
+		SET trigger_type = 'cron',
+		    cron_hour    = (substring(manifest_blob from '^manifests/CRON([0-9]{2})-'))::smallint
+		WHERE manifest_blob ~ '^manifests/CRON[0-9]{2}-'
+		  AND trigger_type = 'manual'
+	`.execute(db);
 }

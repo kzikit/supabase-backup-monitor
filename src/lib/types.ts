@@ -33,6 +33,12 @@ export interface AzureBackupsTable {
 	tables_count: number | null;
 	storage_files_count: number | null;
 	manifest_blob: string | null;
+	// Bron van de trigger:
+	// - 'manual' → backup is handmatig gestart via UI
+	// - 'cron'   → backup is automatisch gestart door de scheduler
+	trigger_type: 'manual' | 'cron';
+	// Uur in Europe/Amsterdam waarop de cron afging (0–23). NULL voor handmatige backups.
+	cron_hour: number | null;
 }
 
 export type SupabaseBackup = Selectable<SupabaseBackupsTable>;

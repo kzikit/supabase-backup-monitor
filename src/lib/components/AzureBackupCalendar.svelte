@@ -7,6 +7,8 @@
 		tables_count: number | null;
 		storage_files_count: number | null;
 		manifest_blob: string | null;
+		trigger_type: 'manual' | 'cron';
+		cron_hour: number | null;
 	}
 
 	let { backups }: { backups: AzureBackupRow[] } = $props();
@@ -18,12 +20,13 @@
 		if (scrollContainer) scrollContainer.scrollLeft = scrollContainer.scrollWidth;
 	});
 
-	// Bouw een map van datum → { status, count } (meerdere backups per dag)
+	// Aggregatie per dag. Cron en handmatig worden gescheiden geteld:
+	// - cijfer in de cel = aantal GESLAAGDE cron-backups
+	// - stippen boven het cijfer = aantal handmatige backups (status onafhankelijk)
 	interface DayInfo {
-		status: string;
-		total: number;
-		completed: number;
-		failed: number;
+		cronCompleted: number;
+		cronFailed: number;
+		manualTotal: number;
 	}
 
 	const backupDayMap = $derived(
@@ -31,45 +34,54 @@
 			const map = new Map<string, DayInfo>();
 			for (const b of backups) {
 				const date = new Date(b.timestamp).toISOString().split('T')[0];
-				const existing = map.get(date);
-				if (existing) {
-					existing.total++;
-					if (b.status === 'completed') existing.completed++;
-					else existing.failed++;
-					// Status is 'completed' als minstens 1 succesvol
-					if (b.status === 'completed') existing.status = 'completed';
+				const info = map.get(date) ?? { cronCompleted: 0, cronFailed: 0, manualTotal: 0 };
+				if (b.trigger_type === 'cron') {
+					if (b.status === 'completed') info.cronCompleted++;
+					else info.cronFailed++;
 				} else {
-					map.set(date, {
-						status: b.status,
-						total: 1,
-						completed: b.status === 'completed' ? 1 : 0,
-						failed: b.status === 'completed' ? 0 : 1
-					});
+					info.manualTotal++;
 				}
+				map.set(date, info);
 			}
 			return map;
 		})()
 	);
 
 	// Statussen:
-	// - 'ok'      : minstens 1 geslaagde back-up (groene cel, toont aantal geslaagd)
-	// - 'none'    : geen geslaagde back-up deze dag (rode cel met "0")
+	// - 'ok'      : minstens 1 geslaagde cron-backup (groene cel, toont aantal geslaagd)
+	// - 'none'    : geen geslaagde cron-backup deze dag (rode cel met "0") —
+	//               dagen met alleen handmatige backups vallen hier ook onder
 	// - 'no-data' : helemaal geen gegevens voor deze dag (grijze cel)
 	type DayStatus = 'ok' | 'none' | 'no-data';
 
-	// Verwacht aantal geslaagde back-ups per dag (6 = elke 4 uur)
+	// Verwacht aantal geslaagde cron-backups per dag (6 = elke 4 uur)
 	const EXPECTED_PER_DAY = 6;
+
+	// Maximaal aantal stippen voordat we overschakelen op een diamantsymbool
+	const MAX_DOTS = 3;
 
 	function getDayStatus(dateStr: string): DayStatus {
 		const info = backupDayMap.get(dateStr);
 		if (!info) return 'no-data';
-		if (info.completed >= 1) return 'ok';
+		if (info.cronCompleted >= 1) return 'ok';
 		return 'none';
 	}
 
-	function getDayCount(dateStr: string): number {
-		// Toon het aantal GESLAAGDE back-ups in de cel
-		return backupDayMap.get(dateStr)?.completed ?? 0;
+	function getCronCount(dateStr: string): number {
+		return backupDayMap.get(dateStr)?.cronCompleted ?? 0;
+	}
+
+	function getManualCount(dateStr: string): number {
+		return backupDayMap.get(dateStr)?.manualTotal ?? 0;
+	}
+
+	// Render-vorm voor handmatige backups:
+	// - 1..MAX_DOTS handmatig → evenveel '•'
+	// - >MAX_DOTS → één diamant 🞙
+	function manualMarker(n: number): string {
+		if (n <= 0) return '';
+		if (n > MAX_DOTS) return '🞙';
+		return '•'.repeat(n);
 	}
 
 	const statusColors: Record<DayStatus, string> = {
@@ -78,10 +90,19 @@
 		'no-data': 'bg-base-content/10'
 	};
 
+	// Stippen krijgen contrast met de celkleur
+	function dotColorClass(status: DayStatus): string {
+		if (status === 'ok') return 'text-black';
+		if (status === 'none') return 'text-error-content';
+		return 'text-base-content/70';
+	}
+
 	function dayTitle(dateStr: string): string {
 		const info = backupDayMap.get(dateStr);
 		if (!info) return `${dateStr}: Geen data`;
-		return `${dateStr}: ${info.completed}/${info.total} geslaagd`;
+		const cronTotal = info.cronCompleted + info.cronFailed;
+		const manualPart = info.manualTotal > 0 ? `, ${info.manualTotal} handmatig` : '';
+		return `${dateStr}: ${info.cronCompleted}/${cronTotal} cron geslaagd${manualPart}`;
 	}
 
 	// Kleur van het getal in een groene cel:
@@ -93,15 +114,22 @@
 	}
 
 	// Kalendergrid: afgelopen 52 weken
+	interface DayCell {
+		date: string;
+		status: DayStatus;
+		count: number; // aantal geslaagde cron-backups
+		manualCount: number; // aantal handmatige backups
+	}
+
 	const weeks = $derived.by(() => {
 		const today = new Date();
-		const result: { date: string; status: DayStatus; count: number }[][] = [];
+		const result: DayCell[][] = [];
 
 		const start = new Date(today);
 		start.setDate(start.getDate() - 52 * 7 - ((start.getDay() + 6) % 7));
 
 		let current = new Date(start);
-		let week: { date: string; status: DayStatus; count: number }[] = [];
+		let week: DayCell[] = [];
 
 		while (current <= today || week.length > 0) {
 			const dateStr = current.toISOString().split('T')[0];
@@ -111,7 +139,8 @@
 				week.push({
 					date: dateStr,
 					status: getDayStatus(dateStr),
-					count: getDayCount(dateStr)
+					count: getCronCount(dateStr),
+					manualCount: getManualCount(dateStr)
 				});
 			}
 
@@ -179,9 +208,20 @@
 						{@const day = week[dayIndex]}
 						{#if day}
 							<div
-								class="w-6 h-6 rounded-sm {statusColors[day.status]} flex items-center justify-center"
+								class="relative w-6 h-6 rounded-sm {statusColors[
+									day.status
+								]} flex items-center justify-center leading-none"
 								title={dayTitle(day.date)}
 							>
+								{#if day.manualCount > 0}
+									<span
+										class="absolute top-[1px] left-1/2 -translate-x-1/2 text-[8px] leading-none tracking-tighter pointer-events-none {dotColorClass(
+											day.status
+										)}"
+									>
+										{manualMarker(day.manualCount)}
+									</span>
+								{/if}
 								{#if day.status === 'ok'}
 									<span
 										class="text-[13px] font-bold leading-none {countTextClass(
@@ -210,19 +250,32 @@
 			<div class="w-6 h-6 rounded-sm bg-success flex items-center justify-center">
 				<span class="text-[13px] font-bold text-black">6</span>
 			</div>
-			Verwacht aantal gehaald (6)
+			Cron: verwacht aantal gehaald (6)
 		</div>
 		<div class="flex items-center gap-1">
 			<div class="w-6 h-6 rounded-sm bg-success flex items-center justify-center">
 				<span class="text-[13px] font-bold text-orange-800">3</span>
 			</div>
-			Minder dan 6 geslaagd
+			Cron: minder dan 6 geslaagd
 		</div>
 		<div class="flex items-center gap-1">
 			<div class="w-6 h-6 rounded-sm bg-error text-error-content flex items-center justify-center">
 				<span class="text-[13px] font-bold">0</span>
 			</div>
-			Geen geslaagde back-up
+			Cron: geen geslaagde back-up
+		</div>
+		<div class="flex items-center gap-1">
+			<div
+				class="relative w-6 h-6 rounded-sm bg-success flex items-center justify-center leading-none"
+			>
+				<span
+					class="absolute top-[1px] left-1/2 -translate-x-1/2 text-[8px] leading-none tracking-tighter text-black"
+				>
+					••
+				</span>
+				<span class="text-[13px] font-bold leading-none text-black">2</span>
+			</div>
+			• per handmatige backup (max {MAX_DOTS}, daarna 🞙)
 		</div>
 		<div class="flex items-center gap-1">
 			<div class="w-6 h-6 rounded-sm bg-base-content/10"></div>

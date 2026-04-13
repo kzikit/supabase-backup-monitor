@@ -26,7 +26,13 @@ function extractRefFromDbUrl(dbUrl: string): string {
 }
 
 /** Slaat het backup-resultaat op in de lokale database. */
-async function saveToDb(manifest: BackupManifest, manifestBlob: string): Promise<void> {
+async function saveToDb(
+	manifest: BackupManifest,
+	manifestBlob: string,
+	trigger: BackupTrigger
+): Promise<void> {
+	const trigger_type = trigger.type;
+	const cron_hour = trigger.type === 'cron' ? trigger.hour : null;
 	await db
 		.insertInto('azure_backups')
 		.values({
@@ -35,14 +41,18 @@ async function saveToDb(manifest: BackupManifest, manifestBlob: string): Promise
 			duration_ms: manifest.duration_ms,
 			tables_count: manifest.db.tables.length,
 			storage_files_count: manifest.storage.total_files,
-			manifest_blob: manifestBlob
+			manifest_blob: manifestBlob,
+			trigger_type,
+			cron_hour
 		})
 		.onConflict((oc) => oc.column('timestamp').doUpdateSet({
 			status: manifest.status,
 			duration_ms: manifest.duration_ms,
 			tables_count: manifest.db.tables.length,
 			storage_files_count: manifest.storage.total_files,
-			manifest_blob: manifestBlob
+			manifest_blob: manifestBlob,
+			trigger_type,
+			cron_hour
 		}))
 		.execute();
 }
@@ -141,7 +151,7 @@ export async function runBackupWithProgress(
 	emit({ phase: 'manifest', status: 'done', message: 'Manifest geüpload', timestamp: now() });
 
 	// Resultaat opslaan in lokale database
-	await saveToDb(manifest, manifestBlob);
+	await saveToDb(manifest, manifestBlob, trigger);
 
 	emit({
 		phase: 'complete',

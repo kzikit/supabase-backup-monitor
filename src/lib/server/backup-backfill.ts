@@ -151,6 +151,20 @@ function buildNewName(blob: BlobInfo, prefix: string): string {
 	return `${blob.folder}/${prefix}${blob.timestamp}${blob.suffix}`;
 }
 
+/**
+ * Leid trigger-info af uit de manifest-blobnaam.
+ * - `manifests/CRON{HH}-...` → cron + uur
+ * - alles anders (bv. `manifests/MANUAL-...`) → manual
+ */
+function triggerFromManifestBlob(manifestBlob: string): {
+	trigger_type: 'manual' | 'cron';
+	cron_hour: number | null;
+} {
+	const m = manifestBlob.match(/^manifests\/CRON(\d{2})-/);
+	if (m) return { trigger_type: 'cron', cron_hour: parseInt(m[1], 10) };
+	return { trigger_type: 'manual', cron_hour: null };
+}
+
 /** Download + upload om de blob te 'hernoemen' (Azure heeft geen native rename). */
 async function copyBlob(
 	container: ContainerClient,
@@ -360,11 +374,12 @@ export async function runBackfill(
 		}
 	}
 
-	// 8. DB manifest_blob updates
+	// 8. DB manifest_blob updates (incl. trigger_type/cron_hour afgeleid uit nieuwe naam)
 	for (const u of report.dbUpdates) {
+		const { trigger_type, cron_hour } = triggerFromManifestBlob(u.newManifestBlob);
 		await db
 			.updateTable('azure_backups')
-			.set({ manifest_blob: u.newManifestBlob })
+			.set({ manifest_blob: u.newManifestBlob, trigger_type, cron_hour })
 			.where('timestamp', '=', new Date(u.timestamp))
 			.execute();
 		log(`DB update: ${u.timestamp} → ${u.newManifestBlob}`);
@@ -374,6 +389,7 @@ export async function runBackfill(
 	for (const b of report.backfills) {
 		const buf = await container.getBlockBlobClient(b.manifestBlob).downloadToBuffer();
 		const json: BackupManifest = JSON.parse(buf.toString('utf-8'));
+		const { trigger_type, cron_hour } = triggerFromManifestBlob(b.manifestBlob);
 		await db
 			.insertInto('azure_backups')
 			.values({
@@ -382,7 +398,9 @@ export async function runBackfill(
 				duration_ms: json.duration_ms ?? null,
 				tables_count: json.db?.tables?.length ?? null,
 				storage_files_count: json.storage?.total_files ?? null,
-				manifest_blob: b.manifestBlob
+				manifest_blob: b.manifestBlob,
+				trigger_type,
+				cron_hour
 			})
 			.onConflict((oc) => oc.column('timestamp').doNothing())
 			.execute();
