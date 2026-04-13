@@ -184,7 +184,7 @@
 							>
 								{#if day.status === 'ok'}
 									<span
-										class="text-[10px] font-bold leading-none {countTextClass(
+										class="text-[13px] font-bold leading-none {countTextClass(
 											day.count,
 											day.status
 										)}"
@@ -192,7 +192,7 @@
 										{day.count}
 									</span>
 								{:else if day.status === 'none'}
-									<span class="text-[10px] font-bold leading-none">0</span>
+									<span class="text-[13px] font-bold leading-none">0</span>
 								{/if}
 							</div>
 						{:else}
@@ -208,19 +208,19 @@
 	<div class="flex flex-wrap items-center gap-4 mt-3 text-xs text-base-content/60">
 		<div class="flex items-center gap-1">
 			<div class="w-6 h-6 rounded-sm bg-success flex items-center justify-center">
-				<span class="text-[10px] font-bold text-black">6</span>
+				<span class="text-[13px] font-bold text-black">6</span>
 			</div>
 			Verwacht aantal gehaald (6)
 		</div>
 		<div class="flex items-center gap-1">
 			<div class="w-6 h-6 rounded-sm bg-success flex items-center justify-center">
-				<span class="text-[10px] font-bold text-warning">3</span>
+				<span class="text-[13px] font-bold text-warning">3</span>
 			</div>
 			Minder dan 6 geslaagd
 		</div>
 		<div class="flex items-center gap-1">
 			<div class="w-6 h-6 rounded-sm bg-error text-error-content flex items-center justify-center">
-				<span class="text-[10px] font-bold">0</span>
+				<span class="text-[13px] font-bold">0</span>
 			</div>
 			Geen geslaagde back-up
 		</div>
