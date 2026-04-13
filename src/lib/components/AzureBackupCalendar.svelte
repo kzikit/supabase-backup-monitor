@@ -89,7 +89,7 @@
 	// - oranje als het lager ligt dan verwacht
 	function countTextClass(count: number, status: DayStatus): string {
 		if (status !== 'ok') return '';
-		return count >= EXPECTED_PER_DAY ? 'text-black' : 'text-warning';
+		return count >= EXPECTED_PER_DAY ? 'text-black' : 'text-orange-800';
 	}
 
 	// Kalendergrid: afgelopen 52 weken
@@ -214,7 +214,7 @@
 		</div>
 		<div class="flex items-center gap-1">
 			<div class="w-6 h-6 rounded-sm bg-success flex items-center justify-center">
-				<span class="text-[13px] font-bold text-warning">3</span>
+				<span class="text-[13px] font-bold text-orange-800">3</span>
 			</div>
 			Minder dan 6 geslaagd
 		</div>
