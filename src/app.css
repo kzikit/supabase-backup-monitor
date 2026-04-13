@@ -113,3 +113,27 @@ html, body {
 	font-weight: 500;
 	border-radius: 9999px;
 }
+
+/* Heel dunne scrollbars overal (webkit + firefox) */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: oklch(var(--bc) / 0.25) transparent;
+}
+
+*::-webkit-scrollbar {
+	width: 4px;
+	height: 4px;
+}
+
+*::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+	background-color: oklch(var(--bc) / 0.25);
+	border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+	background-color: oklch(var(--bc) / 0.4);
+}

@@ -11,6 +11,13 @@
 
 	let { backups }: { backups: AzureBackupRow[] } = $props();
 
+	// Scroll-container: initieel naar rechts scrollen zodat de meest recente
+	// weken zichtbaar zijn
+	let scrollContainer = $state<HTMLDivElement | null>(null);
+	$effect(() => {
+		if (scrollContainer) scrollContainer.scrollLeft = scrollContainer.scrollWidth;
+	});
+
 	// Bouw een map van datum → { status, count } (meerdere backups per dag)
 	interface DayInfo {
 		status: string;
@@ -150,13 +157,13 @@
 <div class="card border border-base-content/10 p-4">
 	<h3 class="text-sm font-medium mb-3">Aangepaste backups naar Azure (afgelopen jaar)</h3>
 
-	<div class="overflow-x-auto">
+	<div class="overflow-x-auto" bind:this={scrollContainer}>
 		<div class="inline-flex flex-col gap-[3px] min-w-max">
 			<!-- Maandlabels -->
 			<div class="flex gap-[3px] ml-8 mb-1">
 				{#each monthLabels as { label, col }, i (col)}
 					{@const nextCol = monthLabels[i + 1]?.col ?? weeks.length}
-					<span class="text-xs text-base-content/50" style="width: {(nextCol - col) * 19}px">
+					<span class="text-xs text-base-content/50" style="width: {(nextCol - col) * 27}px">
 						{label}
 					</span>
 				{/each}
@@ -172,12 +179,12 @@
 						{@const day = week[dayIndex]}
 						{#if day}
 							<div
-								class="w-4 h-4 rounded-sm {statusColors[day.status]} flex items-center justify-center"
+								class="w-6 h-6 rounded-sm {statusColors[day.status]} flex items-center justify-center"
 								title={dayTitle(day.date)}
 							>
 								{#if day.status === 'ok'}
 									<span
-										class="text-[7px] font-bold leading-none {countTextClass(
+										class="text-[10px] font-bold leading-none {countTextClass(
 											day.count,
 											day.status
 										)}"
@@ -185,11 +192,11 @@
 										{day.count}
 									</span>
 								{:else if day.status === 'none'}
-									<span class="text-[7px] font-bold leading-none">0</span>
+									<span class="text-[10px] font-bold leading-none">0</span>
 								{/if}
 							</div>
 						{:else}
-							<div class="w-4 h-4"></div>
+							<div class="w-6 h-6"></div>
 						{/if}
 					{/each}
 				</div>
@@ -200,25 +207,25 @@
 	<!-- Legenda -->
 	<div class="flex flex-wrap items-center gap-4 mt-3 text-xs text-base-content/60">
 		<div class="flex items-center gap-1">
-			<div class="w-4 h-4 rounded-sm bg-success flex items-center justify-center">
-				<span class="text-[7px] font-bold text-black">6</span>
+			<div class="w-6 h-6 rounded-sm bg-success flex items-center justify-center">
+				<span class="text-[10px] font-bold text-black">6</span>
 			</div>
 			Verwacht aantal gehaald (6)
 		</div>
 		<div class="flex items-center gap-1">
-			<div class="w-4 h-4 rounded-sm bg-success flex items-center justify-center">
-				<span class="text-[7px] font-bold text-warning">3</span>
+			<div class="w-6 h-6 rounded-sm bg-success flex items-center justify-center">
+				<span class="text-[10px] font-bold text-warning">3</span>
 			</div>
 			Minder dan 6 geslaagd
 		</div>
 		<div class="flex items-center gap-1">
-			<div class="w-4 h-4 rounded-sm bg-error text-error-content flex items-center justify-center">
-				<span class="text-[7px] font-bold">0</span>
+			<div class="w-6 h-6 rounded-sm bg-error text-error-content flex items-center justify-center">
+				<span class="text-[10px] font-bold">0</span>
 			</div>
 			Geen geslaagde back-up
 		</div>
 		<div class="flex items-center gap-1">
-			<div class="w-4 h-4 rounded-sm bg-base-content/10"></div>
+			<div class="w-6 h-6 rounded-sm bg-base-content/10"></div>
 			Geen data
 		</div>
 	</div>

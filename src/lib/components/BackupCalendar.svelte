@@ -3,6 +3,13 @@
 
 	let { backups }: { backups: SupabaseBackup[] } = $props();
 
+	// Scroll-container: initieel naar rechts scrollen zodat de meest recente
+	// weken zichtbaar zijn
+	let scrollContainer = $state<HTMLDivElement | null>(null);
+	$effect(() => {
+		if (scrollContainer) scrollContainer.scrollLeft = scrollContainer.scrollWidth;
+	});
+
 	// Bouw een map van datum → status
 	const backupStatusMap = $derived(new Map(
 		backups.map((b) => {
@@ -120,7 +127,7 @@
 <div class="card border border-base-content/10 p-4">
 	<h3 class="text-sm font-medium mb-3">Supabase beheerde backups (afgelopen jaar)</h3>
 
-	<div class="overflow-x-auto">
+	<div class="overflow-x-auto" bind:this={scrollContainer}>
 		<div class="inline-flex flex-col gap-[3px] min-w-max">
 			<!-- Maandlabels -->
 			<div class="flex gap-[3px] ml-8 mb-1">
@@ -128,7 +135,7 @@
 					{@const nextCol = monthLabels[i + 1]?.col ?? weeks.length}
 					<span
 						class="text-xs text-base-content/50"
-						style="width: {(nextCol - col) * 19}px"
+						style="width: {(nextCol - col) * 27}px"
 					>
 						{label}
 					</span>
@@ -145,7 +152,7 @@
 						{@const day = week[dayIndex]}
 						{#if day}
 							<div
-								class="w-4 h-4 rounded-sm {statusColors[day.status]} relative overflow-hidden"
+								class="w-6 h-6 rounded-sm {statusColors[day.status]} relative overflow-hidden"
 								title="{day.date}: {statusLabels[day.status]}"
 							>
 								{#if day.status === 'expired'}
@@ -156,7 +163,7 @@
 								{/if}
 							</div>
 						{:else}
-							<div class="w-4 h-4"></div>
+							<div class="w-6 h-6"></div>
 						{/if}
 					{/each}
 				</div>
@@ -167,11 +174,11 @@
 	<!-- Legenda -->
 	<div class="flex flex-wrap items-center gap-4 mt-3 text-xs text-base-content/60">
 		<div class="flex items-center gap-1">
-			<div class="w-4 h-4 rounded-sm bg-success"></div>
+			<div class="w-6 h-6 rounded-sm bg-success"></div>
 			Back-up OK
 		</div>
 		<div class="flex items-center gap-1">
-			<div class="w-4 h-4 rounded-sm bg-success/30 relative overflow-hidden">
+			<div class="w-6 h-6 rounded-sm bg-success/30 relative overflow-hidden">
 				<div class="absolute inset-0 flex items-center justify-center">
 					<div class="w-[141%] h-[1.5px] bg-base-content/30 rotate-45"></div>
 				</div>
@@ -179,15 +186,15 @@
 			Opgeschoond
 		</div>
 		<div class="flex items-center gap-1">
-			<div class="w-4 h-4 rounded-sm bg-error"></div>
+			<div class="w-6 h-6 rounded-sm bg-error"></div>
 			Mislukt
 		</div>
 		<div class="flex items-center gap-1">
-			<div class="w-4 h-4 rounded-sm bg-warning/40"></div>
+			<div class="w-6 h-6 rounded-sm bg-warning/40"></div>
 			Geen back-up
 		</div>
 		<div class="flex items-center gap-1">
-			<div class="w-4 h-4 rounded-sm bg-base-content/10"></div>
+			<div class="w-6 h-6 rounded-sm bg-base-content/10"></div>
 			Geen data
 		</div>
 	</div>
