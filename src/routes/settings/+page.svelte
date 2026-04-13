@@ -224,3 +224,14 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	/* Verberg de standaard check-indicator die daisyUI in de toggle-handle
+	   rendert — we hebben alleen de kleurstate nodig. */
+	input.toggle {
+		background-image: none !important;
+	}
+	input.toggle::before {
+		background-image: none !important;
+	}
+</style>
