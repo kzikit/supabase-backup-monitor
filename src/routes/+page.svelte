@@ -412,7 +412,7 @@
 			<button
 				onclick={openBackfillDialog}
 				disabled={backfillBusy}
-				class="btn btn-block gap-2 btn-warning"
+				class="btn btn-lg btn-block gap-2 btn-warning"
 			>
 				{#if backfillBusy}
 					<span class="loading loading-spinner loading-sm"></span>
