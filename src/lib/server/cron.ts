@@ -6,6 +6,20 @@ import { runBackup } from './backup-orchestrator';
 import type { NewSupabaseBackup, BackupAlertReason } from '$lib/types';
 
 /**
+ * Geeft het huidige uur (0–23) in Europe/Amsterdam terug.
+ * Wordt gebruikt om de bestandsnaam-prefix `CRON{HH}-` te bouwen.
+ */
+function getAmsterdamHour(): number {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    hour12: false,
+    timeZone: 'Europe/Amsterdam'
+  }).formatToParts(new Date());
+  const hourPart = parts.find((p) => p.type === 'hour')?.value ?? '0';
+  return parseInt(hourPart, 10);
+}
+
+/**
  * Start de cron jobs voor back-up checks.
  *
  * - 08:00: Ochtendcheck — Supabase draait backups rond 06:00
@@ -24,9 +38,10 @@ export function startCronJob() {
   cron.schedule(
     '0 2,6,10,14,18,22 * * *',
     async () => {
-      console.log('[cron] Azure backup gestart');
+      const hour = getAmsterdamHour();
+      console.log(`[cron] Azure backup gestart (CRON${hour.toString().padStart(2, '0')})`);
       try {
-        const manifest = await runBackup();
+        const manifest = await runBackup({ type: 'cron', hour });
         console.log(`[cron] Azure backup klaar in ${manifest.duration_ms}ms`);
       } catch (err) {
         console.error('[cron] Azure backup mislukt:', err);

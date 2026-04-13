@@ -80,7 +80,8 @@ function streamPgDumpToAzure(
  */
 export async function backupDatabase(
 	timestamp: string,
-	dbUrl: string
+	dbUrl: string,
+	prefix: string
 ): Promise<{ schemaSize: number; dataSize: number; migrationsSize: number }> {
 	validatePgDump();
 
@@ -89,7 +90,7 @@ export async function backupDatabase(
 	const schemaSize = await streamPgDumpToAzure(
 		dbUrl,
 		['--schema=public', '--schema-only', '--no-owner', '--no-privileges', '--no-comments'],
-		`db/${timestamp}-schema.sql.gz`
+		`db/${prefix}${timestamp}-schema.sql.gz`
 	);
 	console.log(`[backup-db] Schema dump klaar: ${schemaSize} bytes`);
 
@@ -104,7 +105,7 @@ export async function backupDatabase(
 			'--no-privileges',
 			'--rows-per-insert=1000'
 		],
-		`db/${timestamp}-data.sql.gz`
+		`db/${prefix}${timestamp}-data.sql.gz`
 	);
 	console.log(`[backup-db] Data dump klaar: ${dataSize} bytes`);
 
@@ -119,7 +120,7 @@ export async function backupDatabase(
 			'--no-privileges',
 			'--rows-per-insert=1000'
 		],
-		`db/${timestamp}-migrations.sql.gz`
+		`db/${prefix}${timestamp}-migrations.sql.gz`
 	);
 	console.log(`[backup-db] Migrations dump klaar: ${migrationsSize} bytes`);
 

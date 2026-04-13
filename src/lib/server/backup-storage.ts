@@ -148,7 +148,8 @@ function extractRefFromDbUrl(dbUrl: string): string {
 export async function backupStorage(
 	timestamp: string,
 	dbUrl: string,
-	serviceRoleKey: string
+	serviceRoleKey: string,
+	prefix: string
 ): Promise<{ buckets: Array<{ id: string; public: boolean; files_count: number }>; totalFiles: number }> {
 	const projectRef = extractRefFromDbUrl(dbUrl);
 	const client = createStorageClient(projectRef, serviceRoleKey);
@@ -162,7 +163,7 @@ export async function backupStorage(
 	console.log(`[backup-storage] ${buckets.length} buckets gevonden: ${buckets.map((b) => b.id).join(', ')}`);
 
 	const archive = archiver('tar', { gzip: true, gzipOptions: { level: 6 } });
-	const blobPath = `storage/${timestamp}.tar.gz`;
+	const blobPath = `storage/${prefix}${timestamp}.tar.gz`;
 
 	// Start upload terwijl archief wordt gevuld (streaming — geen disk I/O)
 	const uploadPromise = uploadStream(blobPath, archive);

@@ -200,6 +200,51 @@
 
 	<!-- Tab: Beheerd (Supabase) -->
 	{#if activeTab === 'beheerd'}
+		<!-- Check nu knop (boven de status-samenvatting, onder het tabblad) -->
+		<button
+			onclick={triggerCheck}
+			disabled={checking}
+			class="btn btn-lg btn-block btn-primary gap-2"
+		>
+			{#if checking}
+				<span class="loading loading-spinner loading-sm"></span>
+				Bezig...
+			{:else if checkResult === 'ok'}
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M5 13l4 4L19 7"
+					/>
+				</svg>
+				Klaar
+			{:else if checkResult === 'error'}
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M6 18L18 6M6 6l12 12"
+					/>
+				</svg>
+				Fout
+			{:else}
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+					/>
+				</svg>
+				Check nu
+			{/if}
+		</button>
+		{#if checkError}
+			<div class="text-sm text-error">Check mislukt: {checkError}</div>
+		{/if}
+
 		<!-- Status samenvatting -->
 		<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 			<div class="card border border-base-content/10 p-4">
@@ -266,49 +311,6 @@
 				<div class="text-sm text-base-content/60">Totaal back-ups</div>
 				<div class="mt-1 text-sm font-medium">{data.backups.length}</div>
 			</div>
-		</div>
-
-		<!-- Check nu knop -->
-		<div class="flex items-center gap-3">
-			<button onclick={triggerCheck} disabled={checking} class="btn btn-sm btn-primary gap-1.5">
-				{#if checking}
-					<span class="loading loading-spinner loading-xs"></span>
-					Bezig...
-				{:else if checkResult === 'ok'}
-					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M5 13l4 4L19 7"
-						/>
-					</svg>
-					Klaar
-				{:else if checkResult === 'error'}
-					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M6 18L18 6M6 6l12 12"
-						/>
-					</svg>
-					Fout
-				{:else}
-					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-						/>
-					</svg>
-					Check nu
-				{/if}
-			</button>
-			{#if checkError}
-				<span class="text-sm text-error">Check mislukt: {checkError}</span>
-			{/if}
 		</div>
 
 		<!-- Weergave -->

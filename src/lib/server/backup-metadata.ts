@@ -19,7 +19,8 @@ const { Pool } = pg;
  */
 export async function backupMetadata(
 	timestamp: string,
-	dbUrl: string
+	dbUrl: string,
+	prefix: string
 ): Promise<BackupMetadata> {
 	const pool = new Pool({ connectionString: dbUrl, connectionTimeoutMillis: 10000 });
 
@@ -95,7 +96,7 @@ export async function backupMetadata(
 			tables: tableStats
 		};
 
-		await uploadJson(`metadata/${timestamp}.json`, metadata);
+		await uploadJson(`metadata/${prefix}${timestamp}.json`, metadata);
 
 		console.log(
 			`[backup-metadata] Klaar: ${policies.rows.length} policies, ` +

@@ -15,7 +15,7 @@ export async function POST() {
 			}
 
 			try {
-				await runBackupWithProgress(send);
+				await runBackupWithProgress({ type: 'manual' }, send);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : String(err);
 				console.error('[api/backup] Backup mislukt:', message);

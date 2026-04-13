@@ -72,6 +72,12 @@ export interface SupabaseBackupEntry {
 	inserted_at: string;
 }
 
+// Trigger-bron van een Azure backup — bepaalt de bestandsnaam-prefix in blob storage.
+// - 'manual' → blobs krijgen prefix `MANUAL-`
+// - 'cron'   → blobs krijgen prefix `CRON{HH}-` (bv. `CRON06-`), waarbij HH het
+//              uur in Europe/Amsterdam is op het moment dat de cron afgaat
+export type BackupTrigger = { type: 'manual' } | { type: 'cron'; hour: number };
+
 // Backup naar Azure Blob Storage
 export interface BackupManifest {
 	timestamp: string;
