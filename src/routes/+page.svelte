@@ -320,6 +320,54 @@
 
 	<!-- Tab: Aangepast (Azure) -->
 	{:else}
+		<!-- Trigger knop (boven de status-samenvatting, onder het tabblad) -->
+		<button
+			onclick={triggerAzureBackup}
+			disabled={triggering}
+			class="btn btn-lg btn-block gap-2 {triggerResult === 'error' ? 'btn-error' : 'btn-primary'}"
+		>
+			{#if triggering}
+				<span class="loading loading-spinner loading-sm"></span>
+				Bezig...
+			{:else if triggerResult === 'ok'}
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M5 13l4 4L19 7"
+					/>
+				</svg>
+				Voltooid
+			{:else if triggerResult === 'error'}
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M6 18L18 6M6 6l12 12"
+					/>
+				</svg>
+				Mislukt
+			{:else}
+				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+					/>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+					/>
+				</svg>
+				Trigger back-up nu
+			{/if}
+		</button>
+
 		<!-- Status samenvatting -->
 		<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 			<div class="card border border-base-content/10 p-4">
@@ -383,56 +431,6 @@
 				<div class="text-sm text-base-content/60">Totaal back-ups</div>
 				<div class="mt-1 text-sm font-medium">{data.azureBackups.length}</div>
 			</div>
-		</div>
-
-		<!-- Trigger knop -->
-		<div class="flex items-center gap-3">
-			<button
-				onclick={triggerAzureBackup}
-				disabled={triggering}
-				class="btn btn-sm gap-1.5 {triggerResult === 'error' ? 'btn-error' : 'btn-primary'}"
-			>
-				{#if triggering}
-					<span class="loading loading-spinner loading-xs"></span>
-					Bezig...
-				{:else if triggerResult === 'ok'}
-					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M5 13l4 4L19 7"
-						/>
-					</svg>
-					Voltooid
-				{:else if triggerResult === 'error'}
-					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M6 18L18 6M6 6l12 12"
-						/>
-					</svg>
-					Mislukt
-				{:else}
-					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-						/>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							stroke-width="2"
-							d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-						/>
-					</svg>
-					Trigger
-				{/if}
-			</button>
 		</div>
 
 		<!-- Voortgangslogs -->

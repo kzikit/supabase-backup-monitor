@@ -44,38 +44,45 @@
 		})()
 	);
 
-	type DayStatus = 'all-ok' | 'partial' | 'all-failed' | 'no-data';
+	// Statussen:
+	// - 'ok'      : minstens 1 geslaagde back-up (groene cel, toont aantal geslaagd)
+	// - 'none'    : geen geslaagde back-up deze dag (rode cel met "0")
+	// - 'no-data' : helemaal geen gegevens voor deze dag (grijze cel)
+	type DayStatus = 'ok' | 'none' | 'no-data';
+
+	// Verwacht aantal geslaagde back-ups per dag (6 = elke 4 uur)
+	const EXPECTED_PER_DAY = 6;
 
 	function getDayStatus(dateStr: string): DayStatus {
 		const info = backupDayMap.get(dateStr);
 		if (!info) return 'no-data';
-		if (info.failed === 0) return 'all-ok';
-		if (info.completed === 0) return 'all-failed';
-		return 'partial';
+		if (info.completed >= 1) return 'ok';
+		return 'none';
 	}
 
 	function getDayCount(dateStr: string): number {
-		return backupDayMap.get(dateStr)?.total ?? 0;
+		// Toon het aantal GESLAAGDE back-ups in de cel
+		return backupDayMap.get(dateStr)?.completed ?? 0;
 	}
 
 	const statusColors: Record<DayStatus, string> = {
-		'all-ok': 'bg-success text-success-content',
-		partial: 'bg-warning text-warning-content',
-		'all-failed': 'bg-error text-error-content',
+		ok: 'bg-success',
+		none: 'bg-error text-error-content',
 		'no-data': 'bg-base-content/10'
-	};
-
-	const statusLabels: Record<DayStatus, string> = {
-		'all-ok': 'Alle back-ups OK',
-		partial: 'Deels mislukt',
-		'all-failed': 'Alle back-ups mislukt',
-		'no-data': 'Geen data'
 	};
 
 	function dayTitle(dateStr: string): string {
 		const info = backupDayMap.get(dateStr);
 		if (!info) return `${dateStr}: Geen data`;
 		return `${dateStr}: ${info.completed}/${info.total} geslaagd`;
+	}
+
+	// Kleur van het getal in een groene cel:
+	// - zwart als het verwachte aantal is gehaald
+	// - oranje als het lager ligt dan verwacht
+	function countTextClass(count: number, status: DayStatus): string {
+		if (status !== 'ok') return '';
+		return count >= EXPECTED_PER_DAY ? 'text-black' : 'text-warning';
 	}
 
 	// Kalendergrid: afgelopen 52 weken
@@ -168,8 +175,17 @@
 								class="w-4 h-4 rounded-sm {statusColors[day.status]} flex items-center justify-center"
 								title={dayTitle(day.date)}
 							>
-								{#if day.count > 0}
-									<span class="text-[7px] font-bold leading-none">{day.count}</span>
+								{#if day.status === 'ok'}
+									<span
+										class="text-[7px] font-bold leading-none {countTextClass(
+											day.count,
+											day.status
+										)}"
+									>
+										{day.count}
+									</span>
+								{:else if day.status === 'none'}
+									<span class="text-[7px] font-bold leading-none">0</span>
 								{/if}
 							</div>
 						{:else}
@@ -184,22 +200,22 @@
 	<!-- Legenda -->
 	<div class="flex flex-wrap items-center gap-4 mt-3 text-xs text-base-content/60">
 		<div class="flex items-center gap-1">
-			<div class="w-4 h-4 rounded-sm bg-success text-success-content flex items-center justify-center">
-				<span class="text-[7px] font-bold">6</span>
+			<div class="w-4 h-4 rounded-sm bg-success flex items-center justify-center">
+				<span class="text-[7px] font-bold text-black">6</span>
 			</div>
-			Alle OK
+			Verwacht aantal gehaald (6)
 		</div>
 		<div class="flex items-center gap-1">
-			<div class="w-4 h-4 rounded-sm bg-warning text-warning-content flex items-center justify-center">
-				<span class="text-[7px] font-bold">4</span>
+			<div class="w-4 h-4 rounded-sm bg-success flex items-center justify-center">
+				<span class="text-[7px] font-bold text-warning">3</span>
 			</div>
-			Deels mislukt
+			Minder dan 6 geslaagd
 		</div>
 		<div class="flex items-center gap-1">
 			<div class="w-4 h-4 rounded-sm bg-error text-error-content flex items-center justify-center">
-				<span class="text-[7px] font-bold">2</span>
+				<span class="text-[7px] font-bold">0</span>
 			</div>
-			Alle mislukt
+			Geen geslaagde back-up
 		</div>
 		<div class="flex items-center gap-1">
 			<div class="w-4 h-4 rounded-sm bg-base-content/10"></div>
