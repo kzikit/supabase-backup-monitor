@@ -131,6 +131,43 @@
 			await invalidateAll();
 		}
 	}
+
+	// === Backfill (Azure prefix-migratie) ===
+	let backfillDialog = $state<HTMLDialogElement | null>(null);
+	let backfillBusy = $state(false);
+	let backfillReport = $state<unknown>(null);
+	let backfillError = $state<string | null>(null);
+	let backfillApplied = $state(false);
+
+	async function runBackfill(apply: boolean) {
+		backfillBusy = true;
+		backfillError = null;
+		try {
+			const res = await fetch(`/api/admin/backfill${apply ? '?apply=1' : ''}`, {
+				method: 'POST'
+			});
+			if (!res.ok) {
+				backfillError = `HTTP ${res.status}: ${await res.text()}`;
+				backfillReport = null;
+				return;
+			}
+			backfillReport = await res.json();
+			backfillApplied = apply;
+			if (apply) await invalidateAll();
+		} catch (err) {
+			backfillError = err instanceof Error ? err.message : 'Netwerkfout';
+		} finally {
+			backfillBusy = false;
+		}
+	}
+
+	function openBackfillDialog() {
+		backfillReport = null;
+		backfillError = null;
+		backfillApplied = false;
+		backfillDialog?.showModal();
+		runBackfill(false);
+	}
 </script>
 
 <div class="space-y-6">
@@ -370,6 +407,36 @@
 			{/if}
 		</button>
 
+		<!-- Backfill-knop (alleen zichtbaar wanneer ingeschakeld in Instellingen) -->
+		{#if data.showBackfillButton}
+			<button
+				onclick={openBackfillDialog}
+				disabled={backfillBusy}
+				class="btn btn-block gap-2 btn-warning"
+			>
+				{#if backfillBusy}
+					<span class="loading loading-spinner loading-sm"></span>
+					Bezig...
+				{:else}
+					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7c-2 0-3 1-3 3z"
+						/>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M8 12h8M12 8v8"
+						/>
+					</svg>
+					Backfill (Azure prefix + DB)
+				{/if}
+			</button>
+		{/if}
+
 		<!-- Status samenvatting -->
 		<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 			<div class="card border border-base-content/10 p-4">
@@ -448,3 +515,132 @@
 		{/if}
 	{/if}
 </div>
+
+<!-- Backfill modal -->
+<dialog bind:this={backfillDialog} class="modal">
+	<div class="modal-box max-w-3xl">
+		<h3 class="text-lg font-medium mb-2">Backfill — Azure prefix migratie</h3>
+		<p class="text-sm text-base-content/60 mb-4">
+			Hernoemt legacy Azure-blobs naar <code>MANUAL-</code>/<code>CRON{`{HH}`}-</code>,
+			verwijdert mislukte back-ups (groepen zonder manifest), werkt
+			<code>azure_backups.manifest_blob</code> bij, en voegt ontbrekende rijen toe vanuit
+			bestaande manifests.
+		</p>
+
+		{#if backfillBusy}
+			<div class="flex items-center gap-2 py-4">
+				<span class="loading loading-spinner loading-md"></span>
+				<span class="text-sm">Analyse / uitvoer bezig...</span>
+			</div>
+		{/if}
+
+		{#if backfillError}
+			<div class="alert alert-error text-sm">{backfillError}</div>
+		{/if}
+
+		{#if backfillReport && !backfillBusy}
+			{@const r = backfillReport as {
+				mode: string;
+				container: string;
+				blobsScanned: number;
+				timestampGroups: number;
+				renames: Array<{ timestamp: string; targetPrefix: string; reason: string }>;
+				deletes: Array<{ timestamp: string; blobs: string[] }>;
+				dbUpdates: Array<{ timestamp: string; oldManifestBlob: string; newManifestBlob: string }>;
+				backfills: Array<{ timestamp: string; manifestBlob: string }>;
+				warnings: string[];
+				logs: string[];
+			}}
+			<div class="space-y-3 text-sm">
+				<div class="flex flex-wrap gap-2">
+					<span class="badge {r.mode === 'apply' ? 'badge-warning' : 'badge-info'}">{r.mode}</span>
+					<span class="badge badge-ghost">container: {r.container}</span>
+					<span class="badge badge-ghost">{r.blobsScanned} blobs</span>
+					<span class="badge badge-ghost">{r.timestampGroups} groepen</span>
+				</div>
+
+				<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+					<div class="card border border-base-content/10 p-2">
+						<div class="text-xs text-base-content/60">Renames</div>
+						<div class="text-lg font-medium">{r.renames.length}</div>
+					</div>
+					<div class="card border border-base-content/10 p-2">
+						<div class="text-xs text-base-content/60">Deletes</div>
+						<div class="text-lg font-medium">{r.deletes.length}</div>
+					</div>
+					<div class="card border border-base-content/10 p-2">
+						<div class="text-xs text-base-content/60">DB-updates</div>
+						<div class="text-lg font-medium">{r.dbUpdates.length}</div>
+					</div>
+					<div class="card border border-base-content/10 p-2">
+						<div class="text-xs text-base-content/60">Back-fills</div>
+						<div class="text-lg font-medium">{r.backfills.length}</div>
+					</div>
+				</div>
+
+				{#if r.warnings.length > 0}
+					<div class="alert alert-warning text-xs">
+						<ul class="list-disc list-inside">
+							{#each r.warnings as w}
+								<li>{w}</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
+
+				{#if r.renames.length > 0}
+					<details class="border border-base-content/10 rounded p-2">
+						<summary class="text-xs font-medium cursor-pointer">Renames ({r.renames.length})</summary>
+						<ul class="mt-2 text-xs font-mono space-y-1">
+							{#each r.renames as rn}
+								<li>{rn.timestamp} → {rn.targetPrefix} <span class="text-base-content/60">({rn.reason})</span></li>
+							{/each}
+						</ul>
+					</details>
+				{/if}
+
+				{#if r.deletes.length > 0}
+					<details class="border border-base-content/10 rounded p-2">
+						<summary class="text-xs font-medium cursor-pointer">Deletes ({r.deletes.length})</summary>
+						<ul class="mt-2 text-xs font-mono space-y-1">
+							{#each r.deletes as d}
+								<li>{d.timestamp} — {d.blobs.length} blobs</li>
+							{/each}
+						</ul>
+					</details>
+				{/if}
+
+				{#if r.backfills.length > 0}
+					<details class="border border-base-content/10 rounded p-2">
+						<summary class="text-xs font-medium cursor-pointer">Back-fills ({r.backfills.length})</summary>
+						<ul class="mt-2 text-xs font-mono space-y-1">
+							{#each r.backfills as b}
+								<li>{b.timestamp} — {b.manifestBlob}</li>
+							{/each}
+						</ul>
+					</details>
+				{/if}
+
+				{#if backfillApplied}
+					<div class="alert alert-success text-sm">
+						Wijzigingen doorgevoerd. Logs: {r.logs.length} regels.
+					</div>
+				{/if}
+			</div>
+		{/if}
+
+		<div class="modal-action">
+			<button class="btn btn-ghost btn-sm" onclick={() => backfillDialog?.close()}>
+				Sluiten
+			</button>
+			{#if backfillReport && !backfillBusy && !backfillApplied}
+				<button class="btn btn-warning btn-sm" onclick={() => runBackfill(true)}>
+					Doorvoeren (--apply)
+				</button>
+			{/if}
+		</div>
+	</div>
+	<form method="dialog" class="modal-backdrop">
+		<button>Sluiten</button>
+	</form>
+</dialog>

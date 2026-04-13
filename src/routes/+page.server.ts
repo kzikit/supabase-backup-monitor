@@ -2,7 +2,7 @@ import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
 
 export const load: PageServerLoad = async () => {
-	const [supabaseRows, azureRows] = await Promise.all([
+	const [supabaseRows, azureRows, showBackfillRow] = await Promise.all([
 		db
 			.selectFrom('supabase_backups')
 			.selectAll()
@@ -12,7 +12,12 @@ export const load: PageServerLoad = async () => {
 			.selectFrom('azure_backups')
 			.selectAll()
 			.orderBy('timestamp', 'desc')
-			.execute()
+			.execute(),
+		db
+			.selectFrom('app_settings')
+			.select('value')
+			.where('key', '=', 'show_backfill_button')
+			.executeTakeFirst()
 	]);
 
 	const backups = supabaseRows.map((b) => ({
@@ -25,5 +30,9 @@ export const load: PageServerLoad = async () => {
 		timestamp: new Date(b.timestamp as unknown as string).toISOString()
 	}));
 
-	return { backups, azureBackups };
+	return {
+		backups,
+		azureBackups,
+		showBackfillButton: showBackfillRow?.value === 'true'
+	};
 };

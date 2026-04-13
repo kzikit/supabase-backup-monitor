@@ -3,6 +3,19 @@
 	import type { PageData, ActionData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
+
+	// Pincode-modal voor het inschakelen van de Backfill-knop
+	let pincodeDialog = $state<HTMLDialogElement | null>(null);
+	let pincodeInput = $state('');
+
+	function openPincodeDialog() {
+		pincodeInput = '';
+		pincodeDialog?.showModal();
+	}
+
+	function closePincodeDialog() {
+		pincodeDialog?.close();
+	}
 </script>
 
 <div class="space-y-6">
@@ -33,6 +46,89 @@
 			</form>
 		</div>
 	</div>
+
+	<!-- Backfill-knop zichtbaar maken (beveiligd met pincode) -->
+	<div class="card border border-base-content/10 p-4">
+		<div class="flex items-center justify-between">
+			<div>
+				<h2 class="text-lg font-medium">Backfill-knop tonen</h2>
+				<p class="text-base-content/60 text-sm mt-1">
+					Toont een Backfill-knop op de Aangepast-tab voor het hernoemen van legacy
+					Azure-blobs en het aanvullen van ontbrekende DB-rijen. Inschakelen vereist een pincode.
+				</p>
+				{#if form?.action === 'toggleBackfillButton' && form?.error}
+					<div class="alert alert-error mt-2 text-sm">{form.error}</div>
+				{/if}
+			</div>
+			{#if data.showBackfillButton}
+				<!-- Uitschakelen: geen pincode nodig -->
+				<form method="POST" action="?/toggleBackfillButton" use:enhance>
+					<input type="hidden" name="enabled" value="false" />
+					<input
+						type="checkbox"
+						class="toggle toggle-warning"
+						checked={true}
+						onchange={(e) => e.currentTarget.form?.requestSubmit()}
+					/>
+				</form>
+			{:else}
+				<!-- Inschakelen: open pincode-modal -->
+				<input
+					type="checkbox"
+					class="toggle toggle-warning"
+					checked={false}
+					onchange={(e) => {
+						e.currentTarget.checked = false;
+						openPincodeDialog();
+					}}
+				/>
+			{/if}
+		</div>
+	</div>
+
+	<!-- Pincode-modal -->
+	<dialog bind:this={pincodeDialog} class="modal">
+		<div class="modal-box">
+			<h3 class="text-lg font-medium mb-2">Pincode vereist</h3>
+			<p class="text-sm text-base-content/60 mb-4">
+				Voer de pincode in om de Backfill-knop in te schakelen.
+			</p>
+
+			<form
+				method="POST"
+				action="?/toggleBackfillButton"
+				use:enhance={() => {
+					return async ({ result, update }) => {
+						await update({ reset: false });
+						if (result.type === 'success') {
+							closePincodeDialog();
+						}
+					};
+				}}
+			>
+				<input type="hidden" name="enabled" value="true" />
+				<input
+					type="password"
+					name="pincode"
+					class="input input-bordered w-full"
+					placeholder="••••"
+					autocomplete="off"
+					inputmode="numeric"
+					bind:value={pincodeInput}
+					required
+				/>
+				<div class="modal-action">
+					<button type="button" class="btn btn-ghost btn-sm" onclick={closePincodeDialog}>
+						Annuleren
+					</button>
+					<button type="submit" class="btn btn-primary btn-sm">Bevestigen</button>
+				</div>
+			</form>
+		</div>
+		<form method="dialog" class="modal-backdrop">
+			<button>Sluiten</button>
+		</form>
+	</dialog>
 
 	<!-- Formulier: ontvanger toevoegen -->
 	<div class="card border border-base-content/10 p-4">
