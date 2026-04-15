@@ -6,18 +6,37 @@
 	import BackupLogViewer from '$lib/components/BackupLogViewer.svelte';
 	import type { BackupProgressEvent, SupabaseBackup } from '$lib/types';
 	import type { PageData } from './$types';
-	import { invalidateAll } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 
 	// SvelteKit serialiseert Date naar string; cast terug voor bestaande componenten
 	type Serialized<T> = { [K in keyof T]: T[K] extends Date ? string : T[K] };
 
 	let { data }: { data: PageData } = $props();
 
-	// Tabs
-	let activeTab = $state<'beheerd' | 'aangepast'>('beheerd');
+	// Tab- en weergave-staat in URL zodat refresh / bladwijzer dezelfde view herstelt
+	type Tab = 'beheerd' | 'aangepast';
+	type View = 'table' | 'calendar';
 
+	const activeTab = $derived<Tab>(
+		page.url.searchParams.get('tab') === 'aangepast' ? 'aangepast' : 'beheerd'
+	);
 	// Weergave toggle (gedeeld tussen tabs)
-	let view = $state<'table' | 'calendar'>('calendar');
+	const view = $derived<View>(
+		page.url.searchParams.get('view') === 'table' ? 'table' : 'calendar'
+	);
+
+	function setTab(t: Tab) {
+		const url = new URL(page.url);
+		url.searchParams.set('tab', t);
+		goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+	}
+
+	function setView(v: View) {
+		const url = new URL(page.url);
+		url.searchParams.set('view', v);
+		goto(url, { replaceState: true, keepFocus: true, noScroll: true });
+	}
 
 	// === Beheerd (Supabase) ===
 	const latestBackup = $derived(data.backups[0]);
@@ -188,7 +207,7 @@
 		<div class="flex gap-2">
 			<button
 				class="btn btn-sm {view === 'calendar' ? 'btn-active' : ''}"
-				onclick={() => (view = 'calendar')}
+				onclick={() => setView('calendar')}
 			>
 				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path
@@ -202,7 +221,7 @@
 			</button>
 			<button
 				class="btn btn-sm {view === 'table' ? 'btn-active' : ''}"
-				onclick={() => (view = 'table')}
+				onclick={() => setView('table')}
 			>
 				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path
@@ -222,14 +241,14 @@
 		<button
 			role="tab"
 			class="tab {activeTab === 'beheerd' ? 'tab-active' : ''}"
-			onclick={() => (activeTab = 'beheerd')}
+			onclick={() => setTab('beheerd')}
 		>
 			Beheerd
 		</button>
 		<button
 			role="tab"
 			class="tab {activeTab === 'aangepast' ? 'tab-active' : ''}"
-			onclick={() => (activeTab = 'aangepast')}
+			onclick={() => setTab('aangepast')}
 		>
 			Aangepast
 		</button>
