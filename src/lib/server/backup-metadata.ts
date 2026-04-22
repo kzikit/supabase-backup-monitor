@@ -15,7 +15,7 @@ const { Pool } = pg;
  * - Realtime config (clone_supabase_tables.js:cloneRealtimeConfig)
  * - Webhook triggers (clone_supabase_tables.js:recreateWebhooks)
  * - Extensies (clone_supabase_tables.js:getInstalledExtensions)
- * - Tabel-overzicht met rijtellingen (clone_supabase_tables.js:listTables)
+ * - Tabel-overzicht (clone_supabase_tables.js:listTables)
  */
 export async function backupMetadata(
 	timestamp: string,
@@ -71,21 +71,9 @@ export async function backupMetadata(
 			`)
 		]);
 
-		// Rijtellingen ophalen per tabel (uit clone_supabase_tables.js:listTables)
-		const tableStats: Array<{ name: string; row_count: number }> = [];
-		for (const row of tables.rows) {
-			try {
-				const count = await pool.query(
-					`SELECT COUNT(*) as count FROM public."${row.tablename}"`
-				);
-				tableStats.push({
-					name: row.tablename,
-					row_count: parseInt(count.rows[0].count)
-				});
-			} catch {
-				tableStats.push({ name: row.tablename, row_count: -1 });
-			}
-		}
+		const tableList: Array<{ name: string }> = tables.rows.map(
+			(r: { tablename: string }) => ({ name: r.tablename })
+		);
 
 		const metadata: BackupMetadata = {
 			timestamp,
@@ -93,7 +81,7 @@ export async function backupMetadata(
 			realtime_tables: realtime.rows,
 			webhook_triggers: webhooks.rows,
 			extensions: extensions.rows.map((r: { extname: string }) => r.extname),
-			tables: tableStats
+			tables: tableList
 		};
 
 		await uploadJson(`metadata/${prefix}${timestamp}.json`, metadata);
@@ -103,7 +91,7 @@ export async function backupMetadata(
 				`${realtime.rows.length} realtime tabellen, ` +
 				`${webhooks.rows.length} webhook triggers, ` +
 				`${extensions.rows.length} extensies, ` +
-				`${tableStats.length} tabellen`
+				`${tableList.length} tabellen`
 		);
 
 		return metadata;

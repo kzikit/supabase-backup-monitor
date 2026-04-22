@@ -93,7 +93,7 @@ export interface BackupManifest {
 		schema_blob: string;
 		data_blob: string;
 		migrations_blob: string;
-		tables: Array<{ name: string; row_count: number }>;
+		tables: Array<{ name: string }>;
 	};
 	storage: {
 		blob: string;
@@ -128,5 +128,5 @@ export interface BackupMetadata {
 		trigger_definition: string;
 	}>;
 	extensions: string[];
-	tables: Array<{ name: string; row_count: number }>;
+	tables: Array<{ name: string }>;
 }

@@ -1,10 +1,13 @@
 import { env } from '$env/dynamic/private';
+import pg from 'pg';
 import { backupDatabase } from './backup-db';
 import { backupStorage } from './backup-storage';
 import { backupMetadata } from './backup-metadata';
 import { uploadJson } from './azure-storage';
 import { db } from './db';
 import type { BackupManifest, BackupProgressEvent, BackupTrigger } from '$lib/types';
+
+const { Pool } = pg;
 
 type ProgressCallback = (event: BackupProgressEvent) => void;
 
@@ -88,85 +91,103 @@ export async function runBackupWithProgress(
 	const dbUrl = env.SUPABASE_DB_URL;
 	const serviceRoleKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
-	emit({ phase: 'init', status: 'start', message: `Backup wordt gestart (${prefix.replace(/-$/, '')})...`, timestamp: now() });
-	console.log(`[backup] Start backup ${prefix}${timestamp}`);
+	// Advisory lock voorkomt dat twee back-ups tegelijk draaien (cron × manueel,
+	// of een backup die langer dan 4 uur duurt). De lock leeft op de Postgres-
+	// sessie van `lockClient`; valt de TCP-verbinding weg (crash, OOM, deploy),
+	// dan laat Postgres de lock automatisch los — geen stale state.
+	const lockPool = new Pool({ connectionString: dbUrl, max: 1, connectionTimeoutMillis: 10000 });
+	const lockClient = await lockPool.connect();
+	try {
+		const { rows } = await lockClient.query(
+			`SELECT pg_try_advisory_lock(hashtext('supabase-backup-monitor')) AS got`
+		);
+		if (!rows[0].got) {
+			throw new Error('Er draait al een backup — nieuwe trigger geweigerd');
+		}
 
-	// Alle drie parallel met progress tracking
-	const dbPromise = (async () => {
-		emit({ phase: 'database', status: 'start', message: 'Database backup gestart (schema, data, migraties)...', timestamp: now() });
-		const result = await backupDatabase(timestamp, dbUrl, prefix);
-		emit({ phase: 'database', status: 'done', message: 'Database backup voltooid', timestamp: now() });
-		return result;
-	})();
+		emit({ phase: 'init', status: 'start', message: `Backup wordt gestart (${prefix.replace(/-$/, '')})...`, timestamp: now() });
+		console.log(`[backup] Start backup ${prefix}${timestamp}`);
 
-	const storagePromise = (async () => {
-		emit({ phase: 'storage', status: 'start', message: 'Storage backup gestart (buckets → tar.gz)...', timestamp: now() });
-		const result = await backupStorage(timestamp, dbUrl, serviceRoleKey, prefix);
-		emit({ phase: 'storage', status: 'done', message: `Storage backup voltooid — ${result.totalFiles} bestanden`, timestamp: now() });
-		return result;
-	})();
+		// Alle drie parallel met progress tracking
+		const dbPromise = (async () => {
+			emit({ phase: 'database', status: 'start', message: 'Database backup gestart (schema, data, migraties)...', timestamp: now() });
+			const result = await backupDatabase(timestamp, dbUrl, prefix);
+			emit({ phase: 'database', status: 'done', message: 'Database backup voltooid', timestamp: now() });
+			return result;
+		})();
 
-	const metadataPromise = (async () => {
-		emit({ phase: 'metadata', status: 'start', message: 'Metadata backup gestart (policies, realtime, webhooks, extensies)...', timestamp: now() });
-		const result = await backupMetadata(timestamp, dbUrl, prefix);
-		emit({ phase: 'metadata', status: 'done', message: `Metadata backup voltooid — ${result.tables.length} tabellen`, timestamp: now() });
-		return result;
-	})();
+		const storagePromise = (async () => {
+			emit({ phase: 'storage', status: 'start', message: 'Storage backup gestart (buckets → tar.gz)...', timestamp: now() });
+			const result = await backupStorage(timestamp, dbUrl, serviceRoleKey, prefix);
+			emit({ phase: 'storage', status: 'done', message: `Storage backup voltooid — ${result.totalFiles} bestanden`, timestamp: now() });
+			return result;
+		})();
 
-	const [, storageResult, metadata] = await Promise.all([
-		dbPromise,
-		storagePromise,
-		metadataPromise
-	]);
+		const metadataPromise = (async () => {
+			emit({ phase: 'metadata', status: 'start', message: 'Metadata backup gestart (policies, realtime, webhooks, extensies)...', timestamp: now() });
+			const result = await backupMetadata(timestamp, dbUrl, prefix);
+			emit({ phase: 'metadata', status: 'done', message: `Metadata backup voltooid — ${result.tables.length} tabellen`, timestamp: now() });
+			return result;
+		})();
 
-	emit({ phase: 'manifest', status: 'start', message: 'Manifest wordt naar Azure geüpload...', timestamp: now() });
+		const [, storageResult, metadata] = await Promise.all([
+			dbPromise,
+			storagePromise,
+			metadataPromise
+		]);
 
-	const manifestBlob = `manifests/${prefix}${timestamp}.json`;
-	const manifest: BackupManifest = {
-		timestamp,
-		duration_ms: Date.now() - start,
-		supabase_project_ref: extractRefFromDbUrl(dbUrl),
-		db: {
-			schema_blob: `db/${prefix}${timestamp}-schema.sql.gz`,
-			data_blob: `db/${prefix}${timestamp}-data.sql.gz`,
-			migrations_blob: `db/${prefix}${timestamp}-migrations.sql.gz`,
-			tables: metadata.tables
-		},
-		storage: {
-			blob: `storage/${prefix}${timestamp}.tar.gz`,
-			buckets: storageResult.buckets,
-			total_files: storageResult.totalFiles
-		},
-		metadata: {
-			blob: `metadata/${prefix}${timestamp}.json`,
-			storage_policies_count: metadata.storage_policies.length,
-			realtime_tables_count: metadata.realtime_tables.length,
-			webhook_triggers_count: metadata.webhook_triggers.length,
-			extensions: metadata.extensions
-		},
-		status: 'completed'
-	};
+		emit({ phase: 'manifest', status: 'start', message: 'Manifest wordt naar Azure geüpload...', timestamp: now() });
 
-	await uploadJson(manifestBlob, manifest);
-	emit({ phase: 'manifest', status: 'done', message: 'Manifest geüpload', timestamp: now() });
+		const manifestBlob = `manifests/${prefix}${timestamp}.json`;
+		const manifest: BackupManifest = {
+			timestamp,
+			duration_ms: Date.now() - start,
+			supabase_project_ref: extractRefFromDbUrl(dbUrl),
+			db: {
+				schema_blob: `db/${prefix}${timestamp}-schema.sql.gz`,
+				data_blob: `db/${prefix}${timestamp}-data.sql.gz`,
+				migrations_blob: `db/${prefix}${timestamp}-migrations.sql.gz`,
+				tables: metadata.tables
+			},
+			storage: {
+				blob: `storage/${prefix}${timestamp}.tar.gz`,
+				buckets: storageResult.buckets,
+				total_files: storageResult.totalFiles
+			},
+			metadata: {
+				blob: `metadata/${prefix}${timestamp}.json`,
+				storage_policies_count: metadata.storage_policies.length,
+				realtime_tables_count: metadata.realtime_tables.length,
+				webhook_triggers_count: metadata.webhook_triggers.length,
+				extensions: metadata.extensions
+			},
+			status: 'completed'
+		};
 
-	// Resultaat opslaan in lokale database
-	await saveToDb(manifest, manifestBlob, trigger);
+		await uploadJson(manifestBlob, manifest);
+		emit({ phase: 'manifest', status: 'done', message: 'Manifest geüpload', timestamp: now() });
 
-	emit({
-		phase: 'complete',
-		status: 'done',
-		message: `Backup voltooid in ${(manifest.duration_ms / 1000).toFixed(1)}s — ${manifest.db.tables.length} tabellen, ${manifest.storage.total_files} bestanden`,
-		timestamp: now(),
-		data: manifest
-	});
+		// Resultaat opslaan in lokale database
+		await saveToDb(manifest, manifestBlob, trigger);
 
-	console.log(
-		`[backup] Klaar in ${manifest.duration_ms}ms — ` +
-			`${manifest.db.tables.length} tabellen, ` +
-			`${manifest.storage.total_files} storage bestanden, ` +
-			`${manifest.metadata.extensions.length} extensies`
-	);
+		emit({
+			phase: 'complete',
+			status: 'done',
+			message: `Backup voltooid in ${(manifest.duration_ms / 1000).toFixed(1)}s — ${manifest.db.tables.length} tabellen, ${manifest.storage.total_files} bestanden`,
+			timestamp: now(),
+			data: manifest
+		});
 
-	return manifest;
+		console.log(
+			`[backup] Klaar in ${manifest.duration_ms}ms — ` +
+				`${manifest.db.tables.length} tabellen, ` +
+				`${manifest.storage.total_files} storage bestanden, ` +
+				`${manifest.metadata.extensions.length} extensies`
+		);
+
+		return manifest;
+	} finally {
+		lockClient.release();
+		await lockPool.end();
+	}
 }
